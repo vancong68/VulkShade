@@ -1,0 +1,15 @@
+{
+    "vertex": "blit",
+    "fragment": "fsr_easu",
+    "samplers": [
+        { "name": "Sampler0" }
+    ],
+    "UBOs": [
+        { "type": "fragment", "binding": 0, "fields": [
+            { "name": "fsrEasuCon0", "type": "float", "count": 4, "values": [ 1.0, 1.0, 0.0, 0.0 ] },
+            { "name": "fsrEasuCon1", "type": "float", "count": 4, "values": [ 1.0, 1.0, 1.0, -1.0 ] },
+            { "name": "fsrEasuCon2", "type": "float", "count": 4, "values": [ -1.0, 2.0, 1.0, 2.0 ] },
+            { "name": "fsrEasuCon3", "type": "float", "count": 4, "values": [ 0.0, 4.0, 0.0, 0.0 ] }
+        ] }
+    ]
+}

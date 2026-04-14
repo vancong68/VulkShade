@@ -1,0 +1,20 @@
+{
+    "vertex": "underwater",
+    "fragment": "underwater",
+    "samplers": [
+        { "name": "Sampler0" },
+        { "name": "Sampler1" }
+    ],
+    "UBOs": [
+        { "type": "fragment", "binding": 0, "fields": [
+            { "name": "ScreenSize", "type": "float", "count": 2, "values": [ 1.0, 1.0 ] },
+            { "name": "InverseProjMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+            { "name": "SkyDayMoment", "type": "float", "count": 1, "values": [ 0.25 ] },
+            { "name": "SkyDayMixer", "type": "float", "count": 1, "values": [ 1.0 ] },
+            { "name": "SkyNightMixer", "type": "float", "count": 1, "values": [ 0.0 ] },
+            { "name": "SkyRainStrength", "type": "float", "count": 1, "values": [ 0.0 ] },
+            { "name": "dayNightMix", "type": "float", "count": 1, "values": [ 1.0 ] },
+            { "name": "isEyeInWater", "type": "int", "count": 1, "values": [ 0 ] }
+        ] }
+    ]
+}

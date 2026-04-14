@@ -1,0 +1,55 @@
+{
+    "vertex": "terrain",
+    "fragment": "terrain_earlyZ",
+    "samplers": [
+        { "name": "Sampler0" },
+        { "name": "Sampler2" },
+        { "name": "Sampler3" },
+        { "name": "Sampler4" },
+        { "name": "Sampler5" },
+        { "name": "Sampler6" },
+        { "name": "Sampler7" }
+    ],
+    "UBOs": [
+        { "type":  "vertex", "binding": 0, "fields": [
+            { "name": "MVP", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+            { "name": "cameraPosition", "type": "float", "count": 3, "values": [ 0.0, 64.0, 0.0 ] },
+            { "name": "rainStrength", "type": "float", "count": 1, "values": [ 0.0 ] },
+            { "name": "SkyCloudTime", "type": "float", "count": 1, "values": [ 0.0 ] }
+        ] },
+        { "type":  "fragment", "binding": 1, "fields": [
+            { "name": "FogColor", "type": "float", "count": 4, "values": [ 0.0, 0.0, 0.0, 0.0 ] },
+            { "name": "FogEnvironmentalStart", "type": "float", "count": 1, "values": [ 0.0 ] },
+            { "name": "FogEnvironmentalEnd", "type": "float", "count": 1, "values": [ 1.0 ] },
+            { "name": "FogRenderDistanceStart", "type": "float", "count": 1, "values": [ 1.0 ] },
+            { "name": "FogRenderDistanceEnd", "type": "float", "count": 1, "values": [ 1.0 ] },
+            { "name": "FogSkyEnd", "type": "float", "count": 1, "values": [ 1.0 ] },
+            { "name": "FogCloudsEnd", "type": "float", "count": 1, "values": [ 1.0 ] },
+            { "name": "AlphaCutout", "type": "float", "count": 1, "values": [ 1.0 ] },
+            { "name": "near", "type": "float", "count": 1, "values": [ 0.05 ] },
+            { "name": "far", "type": "float", "count": 1, "values": [ 128.0 ] },
+            { "name": "ModelViewMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+            { "name": "ProjMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+            { "name": "InverseProjMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+            { "name": "SkyCameraPosition", "type": "float", "count": 3, "values": [ 0.0, 64.0, 0.0 ] },
+            { "name": "SkySunDirection", "type": "float", "count": 3, "values": [ 0.0, 1.0, 0.0 ] },
+            { "name": "SkyCloudTime", "type": "float", "count": 1, "values": [ 0.0 ] },
+            { "name": "SkyDayMoment", "type": "float", "count": 1, "values": [ 0.25 ] },
+            { "name": "SkyDayMixer", "type": "float", "count": 1, "values": [ 1.0 ] },
+            { "name": "SkyNightMixer", "type": "float", "count": 1, "values": [ 0.0 ] },
+            { "name": "SkyRainStrength", "type": "float", "count": 1, "values": [ 0.0 ] },
+            { "name": "shadowLightPosition", "type": "float", "count": 3, "values": [ 0.0, 1.0, 0.0 ] },
+            { "name": "shadowModelView", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+            { "name": "shadowProjection", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+            { "name": "dayNightMix", "type": "float", "count": 1, "values": [ 1.0 ] },
+            { "name": "moonPhase", "type": "int", "count": 1, "values": [ 0 ] },
+            { "name": "isEyeInWater", "type": "int", "count": 1, "values": [ 0 ] },
+            { "name": "terrainShadowQuality", "type": "int", "count": 1, "values": [ 0 ] },
+            { "name": "terrainLightingQuality", "type": "int", "count": 1, "values": [ 0 ] },
+            { "name": "waterQuality", "type": "int", "count": 1, "values": [ 0 ] }
+        ] }
+    ],
+    "PushConstants": [
+        { "name": "ModelOffset", "type": "float", "count": 3, "values": [ 0.0, 0.0, 0.0 ] }
+    ]
+}

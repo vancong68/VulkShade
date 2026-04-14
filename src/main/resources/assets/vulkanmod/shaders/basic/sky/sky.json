@@ -1,0 +1,32 @@
+{
+    "vertex": "sky",
+    "fragment": "sky",
+    "samplers": [
+        { "name": "Sampler0" },
+        { "name": "Sampler1" },
+        { "name": "Sampler2" }
+    ],
+    "UBOs": [
+        { "type": "fragment", "binding": 0, "fields": [
+            { "name": "SkyUpDirection", "type": "float", "count": 3, "values": [ 0.0, 1.0, 0.0 ] },
+            { "name": "SkyLeftDirection", "type": "float", "count": 3, "values": [ -1.0, 0.0, 0.0 ] },
+            { "name": "SkyLookDirection", "type": "float", "count": 3, "values": [ 0.0, 0.0, -1.0 ] },
+            { "name": "SkyCameraPosition", "type": "float", "count": 3, "values": [ 0.0, 64.0, 0.0 ] },
+            { "name": "SkySunDirection", "type": "float", "count": 3, "values": [ 0.0, 1.0, 0.0 ] },
+            { "name": "SkySunRightDirection", "type": "float", "count": 3, "values": [ 1.0, 0.0, 0.0 ] },
+            { "name": "SkySunUpDirection", "type": "float", "count": 3, "values": [ 0.0, 0.0, 1.0 ] },
+            { "name": "SkyMoonDirection", "type": "float", "count": 3, "values": [ 0.0, -1.0, 0.0 ] },
+            { "name": "SkyMoonRightDirection", "type": "float", "count": 3, "values": [ 1.0, 0.0, 0.0 ] },
+            { "name": "SkyMoonUpDirection", "type": "float", "count": 3, "values": [ 0.0, 0.0, 1.0 ] },
+            { "name": "ScreenSize", "type": "float", "count": 2, "values": [ 1.0, 1.0 ] },
+            { "name": "SkyCloudTime", "type": "float", "count": 1, "values": [ 0.0 ] },
+            { "name": "SkyDayMoment", "type": "float", "count": 1, "values": [ 0.25 ] },
+            { "name": "SkyDayMixer", "type": "float", "count": 1, "values": [ 1.0 ] },
+            { "name": "SkyNightMixer", "type": "float", "count": 1, "values": [ 0.0 ] },
+            { "name": "SkyRainStrength", "type": "float", "count": 1, "values": [ 0.0 ] },
+            { "name": "SkyMoonPhase", "type": "int", "count": 1, "values": [ 0 ] },
+            { "name": "SkyStarBrightness", "type": "float", "count": 1, "values": [ 0.0 ] },
+            { "name": "skyQuality", "type": "int", "count": 1, "values": [ 3 ] }
+        ] }
+    ]
+}

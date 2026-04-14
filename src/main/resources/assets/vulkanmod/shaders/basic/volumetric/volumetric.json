@@ -1,0 +1,30 @@
+{
+    "vertex": "volumetric",
+    "fragment": "volumetric",
+    "samplers": [
+        { "name": "Sampler0" },
+        { "name": "Sampler1" },
+        { "name": "Sampler5" }
+    ],
+    "UBOs": [
+        { "type": "fragment", "binding": 0, "fields": [
+            { "name": "ScreenSize", "type": "float", "count": 2, "values": [ 1.0, 1.0 ] },
+            { "name": "InverseProjMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+            { "name": "InverseModelViewMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+            { "name": "cameraPosition", "type": "float", "count": 3, "values": [ 0.0, 64.0, 0.0 ] },
+            { "name": "sunPosition", "type": "float", "count": 3, "values": [ 0.0, 1.0, 0.0 ] },
+            { "name": "shadowLightPosition", "type": "float", "count": 3, "values": [ 0.0, 1.0, 0.0 ] },
+            { "name": "shadowModelView", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+            { "name": "shadowProjection", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+            { "name": "dayMoment", "type": "float", "count": 1, "values": [ 0.25 ] },
+            { "name": "dayMixer", "type": "float", "count": 1, "values": [ 1.0 ] },
+            { "name": "nightMixer", "type": "float", "count": 1, "values": [ 0.0 ] },
+            { "name": "rainStrength", "type": "float", "count": 1, "values": [ 0.0 ] },
+            { "name": "dayNightMix", "type": "float", "count": 1, "values": [ 1.0 ] },
+            { "name": "near", "type": "float", "count": 1, "values": [ 0.05 ] },
+            { "name": "far", "type": "float", "count": 1, "values": [ 256.0 ] },
+            { "name": "moonPhase", "type": "int", "count": 1, "values": [ 0 ] },
+            { "name": "isEyeInWater", "type": "int", "count": 1, "values": [ 0 ] }
+        ] }
+    ]
+}

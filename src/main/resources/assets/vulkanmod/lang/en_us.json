@@ -1,0 +1,96 @@
+{
+  "vulkanmod.options.unknown": "Unknown",
+
+  "vulkanmod.options.pages.video": "Video",
+  "vulkanmod.options.pages.graphics": "Graphics",
+  "vulkanmod.options.pages.optimizations": "Optimizations",
+  "vulkanmod.options.pages.shaders": "Shaders",
+  "vulkanmod.options.pages.other": "Other",
+
+  "vulkanmod.options.buttons.apply": "Apply",
+  "vulkanmod.options.buttons.kofi": "Support me",
+  "vulkanmod.options.buttons.update_available": "Update available!",
+
+  "vulkanmod.options.advCulling": "Advanced Chunk Culling",
+  "vulkanmod.options.advCulling.aggressive": "Aggressive",
+  "vulkanmod.options.advCulling.conservative": "Conservative",
+  "vulkanmod.options.advCulling.normal": "Normal",
+  "vulkanmod.options.advCulling.tooltip": "Use a culling algorithm that might improve performance by reducing the number of non visible chunk sections rendered.",
+
+  "vulkanmod.options.ao.subBlock": "ON (Sub-block)",
+  "vulkanmod.options.ao.subBlock.tooltip": "ON (Sub-block): Enables smooth lighting for non full block (experimental).",
+
+  "vulkanmod.options.deviceSelector": "Device selector",
+  "vulkanmod.options.deviceSelector.auto": "Auto",
+  "vulkanmod.options.deviceSelector.tooltip": "Current device",
+
+  "vulkanmod.options.entityCulling": "Entity Culling",
+  "vulkanmod.options.entityCulling.tooltip": "Enables culling for entities on not visible sections.",
+
+  "vulkanmod.options.frameQueue": "Render queue size",
+  "vulkanmod.options.frameQueue.tooltip": "Higher values might help stabilize frametime but will increase input lag.",
+
+  "vulkanmod.options.backfaceCulling": "Backface Culling",
+  "vulkanmod.options.backfaceCulling.tooltip": "Culls not visible block faces on the CPU improving GPU performance. To prevent increased CPU overhead enable Indirect Draw.",
+
+  "vulkanmod.options.indirectDraw": "Indirect Draw",
+  "vulkanmod.options.indirectDraw.tooltip": "Reduces CPU overhead but might increases GPU overhead.",
+
+  "vulkanmod.options.fsr": "FidelityFX Super Resolution",
+  "vulkanmod.options.fsr.tooltip": "Render the world at a lower internal resolution, then upscale it before the HUD and menus are drawn.",
+  "vulkanmod.options.fsrInternalScale": "FSR Internal Resolution",
+  "vulkanmod.options.fsrInternalScale.tooltip": "Sets the world render resolution before FSR upscales it back to the current window resolution.",
+  "vulkanmod.options.fsrSharpness": "FSR Sharpness",
+  "vulkanmod.options.fsrSharpness.tooltip": "Controls the RCAS sharpening pass after upscaling. Turn this off if you want only the upscale step.",
+
+  "vulkanmod.options.refreshRate": "Refresh Rate",
+
+  "vulkanmod.options.uniqueOpaqueLayer": "Unique opaque layer",
+  "vulkanmod.options.uniqueOpaqueLayer.tooltip": "Use a unique render layer for opaque terrain to improve performance.",
+
+  "vulkanmod.options.terrainShadowQuality": "Terrain Shadow Quality",
+  "vulkanmod.options.terrainShadowQuality.high": "High",
+  "vulkanmod.options.terrainShadowQuality.fast": "Fast",
+  "vulkanmod.options.terrainShadowQuality.tooltip": "Controls the filtering cost of sun-shadow receiving on terrain and translucent world geometry.",
+
+  "vulkanmod.options.terrainLightingQuality": "Terrain Lighting",
+  "vulkanmod.options.terrainLightingQuality.full": "Full",
+  "vulkanmod.options.terrainLightingQuality.fast": "Fast",
+  "vulkanmod.options.terrainLightingQuality.vanilla": "Vanilla",
+  "vulkanmod.options.terrainLightingQuality.tooltip": "Controls the cost of the opaque and translucent terrain lighting model. Faster modes trade MakeUp-style sun response for performance.",
+
+  "vulkanmod.options.skyQuality": "Sky Quality",
+  "vulkanmod.options.skyQuality.vanilla": "Vanilla",
+  "vulkanmod.options.skyQuality.low": "Low",
+  "vulkanmod.options.skyQuality.medium": "Medium",
+  "vulkanmod.options.skyQuality.high": "High",
+  "vulkanmod.options.skyQuality.tooltip": "Controls the custom sky renderer. Vanilla uses Mojang's sky, low and medium reduce custom sky features, and high keeps volumetric clouds.",
+
+  "vulkanmod.options.volumetricResolution": "Volumetric Resolution",
+  "vulkanmod.options.volumetricResolution.full": "Full",
+  "vulkanmod.options.volumetricResolution.half": "Half",
+  "vulkanmod.options.volumetricResolution.quarter": "Quarter",
+  "vulkanmod.options.volumetricResolution.tooltip": "Scales the captured scene resolution used by volumetric lighting. Lower values improve performance but soften godrays.",
+
+  "vulkanmod.options.waterQuality": "Water Quality",
+  "vulkanmod.options.waterQuality.full": "Full",
+  "vulkanmod.options.waterQuality.fast": "Fast",
+  "vulkanmod.options.waterQuality.simple": "Simple",
+  "vulkanmod.options.waterQuality.vanilla": "Vanilla",
+  "vulkanmod.options.waterQuality.tooltip": "Controls water reflection/refraction cost. Faster modes drop scene-space water effects first.",
+
+  "vulkanmod.options.volumetricLighting": "Volumetric Lighting",
+  "vulkanmod.options.volumetricLighting.tooltip": "Enables the fullscreen godray pass. Turning this off saves the volumetric post and its scene copy.",
+
+  "vulkanmod.options.blockEmissiveTextures": "Block Emissive Textures",
+  "vulkanmod.options.blockEmissiveTextures.tooltip": "Samples the block emissive atlas in terrain shading. Disable this if emissive textures are not important and you want more terrain performance.",
+
+  "vulkanmod.options.windowMode": "Window Mode",
+  "vulkanmod.options.windowMode.windowed": "Windowed",
+  "vulkanmod.options.windowMode.windowedFullscreen": "Windowed Fullscreen",
+
+  "vulkanmod.options.builderThreads": "Chunk Builder Threads",
+  "vulkanmod.options.builderThreads.auto": "Auto",
+
+  "vulkanmod.options.textureAnimations": "Texture Animations"
+}
