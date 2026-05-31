@@ -71,7 +71,7 @@ public class PostProcessingPipeline {
 
         if (bloom != null && bloom.isEnabled()) {
             try {
-                transitionForRead(cmdBuffer, sceneColor);
+                transitionForStorage(cmdBuffer, sceneColor);
                 transitionForWrite(cmdBuffer, tempBuffer);
                 clearImageToBlack(cmdBuffer, tempBuffer);
                 bloom.render(cmdBuffer, sceneColor, tempBuffer);
@@ -134,6 +134,12 @@ public class PostProcessingPipeline {
     private void transitionForRead(VkCommandBuffer cmd, VulkanImage img) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             img.transitionImageLayout(stack, cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        }
+    }
+
+    private void transitionForStorage(VkCommandBuffer cmd, VulkanImage img) {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            img.transitionImageLayout(stack, cmd, VK_IMAGE_LAYOUT_GENERAL);
         }
     }
 
