@@ -15,6 +15,10 @@ import net.vulkanmod.render.chunk.build.light.LightMode;
 import net.vulkanmod.render.vertex.TerrainRenderType;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.device.DeviceManager;
+import net.vulkanmod.vulkshade.config.QualityPreset;
+import net.vulkanmod.vulkshade.config.ShaderQuality;
+import net.vulkanmod.vulkshade.config.VulkShadeConfig;
+import net.vulkanmod.vulkshade.render.VoxyLODManager;
 
 import java.util.stream.IntStream;
 
@@ -170,6 +174,15 @@ public abstract class Options {
                                             value -> minecraftOptions.prioritizeChunkUpdates().set(value),
                                             () -> minecraftOptions.prioritizeChunkUpdates().get())
                                 .setTranslator(value -> Component.translatable(value.getKey())),
+                        new CyclingOption<>(Component.translatable("vulkanmod.options.qualityPreset"),
+                                            QualityPreset.values(),
+                                            value -> {
+                                                value.apply();
+                                                VulkShadeConfig.getInstance().applyPreset(value);
+                                            },
+                                            () -> QualityPreset.detectCurrent())
+                                .setTranslator(preset -> Component.nullToEmpty(preset.getDisplayName()))
+                                .setTooltip(Component.translatable("vulkanmod.options.qualityPreset.tooltip")),
                 }),
                 new OptionBlock("", new Option<?>[]{
                         new CyclingOption<>(Component.translatable("options.graphics"),
@@ -362,8 +375,17 @@ public abstract class Options {
     }
 
     public static OptionBlock[] getShaderOpts() {
+        VulkShadeConfig vcfg = VulkShadeConfig.getInstance();
         return new OptionBlock[]{
                 new OptionBlock("", new Option[]{
+                        new CyclingOption<>(Component.translatable("vulkanmod.options.shaderQuality"),
+                                            ShaderQuality.values(),
+                                            value -> {
+                                                value.apply();
+                                            },
+                                            () -> ShaderQuality.detectCurrent())
+                                .setTranslator(q -> Component.nullToEmpty(q.getDisplayName()))
+                                .setTooltip(Component.translatable("vulkanmod.options.shaderQuality.tooltip")),
                         new CyclingOption<>(Component.translatable("vulkanmod.options.terrainLightingQuality"),
                                             new Integer[]{0, 1, 2},
                                             value -> config.terrainLightingQuality = value,
@@ -429,6 +451,102 @@ public abstract class Options {
                                          value -> config.blockEmissiveTextures = value,
                                          () -> config.blockEmissiveTextures)
                                 .setTooltip(Component.translatable("vulkanmod.options.blockEmissiveTextures.tooltip"))
+                }),
+                new OptionBlock("Shader Features", new Option[]{
+                        new SwitchOption(Component.translatable("vulkshade.effects.ssao"),
+                                         value -> vcfg.setSSAOEnabled(value),
+                                         () -> config.featureSSAO)
+                                .setTooltip(Component.translatable("vulkanmod.options.feature.ssao.tooltip")),
+                        new SwitchOption(Component.translatable("vulkshade.effects.bloom"),
+                                         value -> vcfg.setBloomEnabled(value),
+                                         () -> config.featureBloom)
+                                .setTooltip(Component.translatable("vulkanmod.options.feature.bloom.tooltip")),
+                        new SwitchOption(Component.translatable("vulkshade.effects.pbr"),
+                                         value -> vcfg.setPBRenabled(value),
+                                         () -> config.featurePBR)
+                                .setTooltip(Component.translatable("vulkanmod.options.feature.pbr.tooltip")),
+                        new SwitchOption(Component.translatable("vulkshade.effects.shadows"),
+                                         value -> vcfg.setEnhancedShadows(value),
+                                         () -> config.featureShadows)
+                                .setTooltip(Component.translatable("vulkanmod.options.feature.shadows.tooltip")),
+                        new SwitchOption(Component.translatable("vulkanmod.options.feature.fog"),
+                                         value -> vcfg.setFogEnabled(value),
+                                         () -> config.featureFog)
+                                .setTooltip(Component.translatable("vulkanmod.options.feature.fog.tooltip")),
+                        new SwitchOption(Component.translatable("vulkanmod.options.feature.waterReflect"),
+                                         value -> vcfg.setWaterReflectEnabled(value),
+                                         () -> config.featureWaterReflect)
+                                .setTooltip(Component.translatable("vulkanmod.options.feature.waterReflect.tooltip")),
+                        new SwitchOption(Component.translatable("vulkanmod.options.feature.emissive"),
+                                         value -> vcfg.setEmissiveEnabled(value),
+                                         () -> config.featureEmissive)
+                                .setTooltip(Component.translatable("vulkanmod.options.feature.emissive.tooltip")),
+                        new SwitchOption(Component.translatable("vulkanmod.options.feature.volumetric"),
+                                         value -> vcfg.setVolumetricEnabled(value),
+                                         () -> config.featureVolumetric)
+                                .setTooltip(Component.translatable("vulkanmod.options.feature.volumetric.tooltip")),
+                        new SwitchOption(Component.translatable("vulkanmod.options.feature.motionBlur"),
+                                         value -> vcfg.setMotionBlurEnabled(value),
+                                         () -> config.featureMotionBlur)
+                                .setTooltip(Component.translatable("vulkanmod.options.feature.motionBlur.tooltip")),
+                        new SwitchOption(Component.translatable("vulkanmod.options.feature.lensFlare"),
+                                         value -> vcfg.setLensFlareEnabled(value),
+                                         () -> config.featureLensFlare)
+                                .setTooltip(Component.translatable("vulkanmod.options.feature.lensFlare.tooltip")),
+                })
+        };
+    }
+
+    public static OptionBlock[] getPerformanceOpts() {
+        VulkShadeConfig vcfg = VulkShadeConfig.getInstance();
+        return new OptionBlock[]{
+                new OptionBlock("", new Option<?>[]{
+                        new SwitchOption(Component.translatable("vulkanmod.options.adaptivePerformance"),
+                                         value -> vcfg.setAdaptivePerformance(value),
+                                         () -> config.adaptivePerformance)
+                                .setTooltip(Component.translatable("vulkanmod.options.adaptivePerformance.tooltip")),
+                        new SwitchOption(Component.translatable("vulkanmod.options.framePacing"),
+                                         value -> vcfg.setFramePacingEnabled(value),
+                                         () -> config.framePacing)
+                                .setTooltip(Component.translatable("vulkanmod.options.framePacing.tooltip")),
+                        new RangeOption(Component.translatable("vulkanmod.options.framePacingTarget"),
+                                        30, 240, 10,
+                                        value -> Component.nullToEmpty(value >= 240 ? "Unlimited" : value + " FPS"),
+                                        value -> vcfg.setFramePacingTarget(value),
+                                        () -> config.framePacingTarget)
+                                .setTooltip(Component.translatable("vulkanmod.options.framePacingTarget.tooltip")),
+                }),
+                new OptionBlock("", new Option<?>[]{
+                        new SwitchOption(Component.translatable("vulkanmod.options.chunkBatchRendering"),
+                                         value -> vcfg.setChunkBatchRendering(value),
+                                         () -> config.chunkBatchRendering)
+                                .setTooltip(Component.translatable("vulkanmod.options.chunkBatchRendering.tooltip")),
+                        new SwitchOption(Component.translatable("vulkanmod.options.dynamicRenderDistance"),
+                                         value -> vcfg.setDynamicRenderDistance(value),
+                                         () -> config.dynamicRenderDistance)
+                                .setTooltip(Component.translatable("vulkanmod.options.dynamicRenderDistance.tooltip")),
+                }),
+                new OptionBlock("", new Option<?>[]{
+                        new SwitchOption(Component.translatable("vulkanmod.options.voxyLOD"),
+                                         value -> vcfg.setVoxyLODEnabled(value),
+                                         () -> config.voxyLODEnabled)
+                                .setTooltip(Component.translatable("vulkanmod.options.voxyLOD.tooltip")),
+                        new CyclingOption<>(Component.translatable("vulkanmod.options.voxyLODQuality"),
+                                            new VoxyLODManager.LODQuality[]{
+                                                VoxyLODManager.LODQuality.LOW,
+                                                VoxyLODManager.LODQuality.MEDIUM,
+                                                VoxyLODManager.LODQuality.HIGH
+                                            },
+                                            value -> vcfg.setLODQuality(value),
+                                            () -> vcfg.getLODQuality())
+                                .setTranslator(q -> Component.nullToEmpty(q.name()))
+                                .setTooltip(Component.translatable("vulkanmod.options.voxyLODQuality.tooltip")),
+                        new CyclingOption<>(Component.translatable("vulkanmod.options.voxyLODMaxDistance"),
+                                            new Integer[]{256, 512, 1024},
+                                            value -> vcfg.setMaxLODViewDistance(value),
+                                            () -> config.voxyLODMaxDistance)
+                                .setTranslator(d -> Component.nullToEmpty(d + " blocks"))
+                                .setTooltip(Component.translatable("vulkanmod.options.voxyLODMaxDistance.tooltip")),
                 })
         };
     }

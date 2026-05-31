@@ -41,6 +41,7 @@ public final class GpuFrameProfiler {
         POST_SCENE_COPY("postSceneCopy"),
         FSR_EASU("fsrEasu"),
         FSR_RCAS("fsrRcas"),
+        TONEMAP("tonemap"),
         VOLUMETRIC_POST("volumetricPost"),
         UNDERWATER_POST("underwaterPost");
 

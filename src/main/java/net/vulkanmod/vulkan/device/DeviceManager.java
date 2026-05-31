@@ -45,14 +45,21 @@ public abstract class DeviceManager {
     static TransferQueue transferQueue;
     static ComputeQueue computeQueue;
 
+    private static boolean initialized = false;
+
+    public static boolean isInitialized() {
+        return initialized;
+    }
+
     public static void init(VkInstance instance) {
         try {
             DeviceManager.getSuitableDevices(instance);
             DeviceManager.pickPhysicalDevice();
             DeviceManager.createLogicalDevice();
+            initialized = true;
         } catch (Exception e) {
             Initializer.LOGGER.info(getAvailableDevicesInfo());
-            throw new RuntimeException(e);
+            throw new RuntimeException("Failed to initialize Vulkan device", e);
         }
     }
 
@@ -373,18 +380,26 @@ public abstract class DeviceManager {
     }
 
     public static GraphicsQueue getGraphicsQueue() {
+        if (graphicsQueue == null)
+            throw new IllegalStateException("GraphicsQueue not initialized");
         return graphicsQueue;
     }
 
     public static PresentQueue getPresentQueue() {
+        if (presentQueue == null)
+            throw new IllegalStateException("PresentQueue not initialized");
         return presentQueue;
     }
 
     public static TransferQueue getTransferQueue() {
+        if (transferQueue == null)
+            throw new IllegalStateException("TransferQueue not initialized");
         return transferQueue;
     }
 
     public static ComputeQueue getComputeQueue() {
+        if (computeQueue == null)
+            throw new IllegalStateException("ComputeQueue not initialized");
         return computeQueue;
     }
 

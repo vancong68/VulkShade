@@ -85,7 +85,6 @@ float makeup_shadow(vec3 shadowPos, float zBias) {
     vec2 offset = (vec2(cos(angle), sin(angle)) * currentRadius * MAKEUP_SHADOW_BLUR) / shadowMapRes;
     vec2 offset2 = (vec2(cos(angle2), sin(angle2)) * (1.0 - currentRadius) * MAKEUP_SHADOW_BLUR) / shadowMapRes;
 
-    // Per-pixel z bias from dither, matching MakeUp's shadow_frag.glsl
     float ditherZBias = angle * 0.00002;
     float totalBias = zBias + ditherZBias;
 
@@ -96,6 +95,20 @@ float makeup_shadow(vec3 shadowPos, float zBias) {
     shadow += makeup_sample_shadow_compare(shadowPos, -offset2, totalBias);
 
     return shadow * 0.25;
+}
+
+float makeup_shadow_pcf5x5(vec3 shadowPos, float zBias) {
+    float shadowMapRes = float(textureSize(Sampler5, 0).x);
+    float pixelSize = 1.0 / shadowMapRes;
+    float totalBias = zBias + 0.00005;
+    float shadow = 0.0;
+    for (int x = -2; x <= 2; ++x) {
+        for (int y = -2; y <= 2; ++y) {
+            vec2 offset = vec2(float(x), float(y)) * pixelSize * 1.5;
+            shadow += makeup_sample_shadow_compare(shadowPos, offset, totalBias);
+        }
+    }
+    return shadow / 25.0;
 }
 
 float makeup_shadow_fast(vec3 shadowPos, float zBias) {
@@ -134,8 +147,7 @@ float makeup_shadow_value(vec3 worldPos, vec3 worldNormal) {
     float edge8 = edge4 * edge4;
     float shadowDiffuse = clamp(edge8 * edge2, 0.0, 1.0);
 
-    // Minimal fixed z bias for the depth compare (normal offset handles the rest)
-    float shadow = makeup_shadow(shadowPos, 0.0);
+    float shadow = makeup_shadow_pcf5x5(shadowPos, 0.0);
     return mix(shadow, 1.0, shadowDiffuse);
 }
 
@@ -171,7 +183,7 @@ float makeup_terrain_shadow_value(vec3 worldPos, vec3 worldNormal) {
 
     float shadow = MAKEUP_TERRAIN_SHADOW_QUALITY == 1
         ? makeup_shadow_fast(shadowPos, 0.0)
-        : makeup_shadow(shadowPos, 0.0);
+        : makeup_shadow_pcf5x5(shadowPos, 0.0);
     return mix(shadow, 1.0, shadowDiffuse);
 }
 

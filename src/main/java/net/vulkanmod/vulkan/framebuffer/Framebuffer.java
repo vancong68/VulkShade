@@ -32,6 +32,9 @@ public class Framebuffer {
     private VulkanImage colorAttachment;
     protected VulkanImage depthAttachment;
 
+    public VulkanImage getColorAttachment() { return colorAttachment; }
+    public VulkanImage getDepthAttachment() { return depthAttachment; }
+
     private int level;
 
     private final Reference2LongArrayMap<RenderPass> renderpassToFramebufferMap = new Reference2LongArrayMap<>();
@@ -200,14 +203,6 @@ public class Framebuffer {
 
     public long getDepthImageView() {
         return depthAttachment.getImageView();
-    }
-
-    public VulkanImage getDepthAttachment() {
-        return depthAttachment;
-    }
-
-    public VulkanImage getColorAttachment() {
-        return colorAttachment;
     }
 
     public long getColorAttachmentView() {

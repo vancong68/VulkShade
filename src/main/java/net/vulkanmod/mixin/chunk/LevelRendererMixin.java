@@ -23,6 +23,7 @@ import net.minecraft.world.phys.Vec3;
 import net.vulkanmod.render.chunk.WorldRenderer;
 import net.vulkanmod.render.profiling.Profiler;
 import net.vulkanmod.render.vertex.TerrainRenderType;
+import net.vulkanmod.vulkshade.VulkShade;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 import org.joml.Vector4f;
@@ -83,8 +84,8 @@ public abstract class LevelRendererMixin {
      */
     @Overwrite
     private void cullTerrain(Camera camera, Frustum frustum, boolean spectator) {
-        // TODO: port capture frustum
         this.worldRenderer.setupRenderer(camera, frustum, false, spectator);
+        VulkShade.getInstance().onBeginFrame();
     }
 
     /**
@@ -138,6 +139,10 @@ public abstract class LevelRendererMixin {
             this.worldRenderer.renderSectionLayer(TerrainRenderType.SOLID, camX, camY, camZ, modelView, projection);
             this.worldRenderer.renderSectionLayer(TerrainRenderType.CUTOUT, camX, camY, camZ, modelView, projection);
             this.worldRenderer.renderSectionLayer(TerrainRenderType.CUTOUT_MIPPED, camX, camY, camZ, modelView, projection);
+
+            profiler.pop();
+            profiler.push("LOD_terrain");
+            VulkShade.getInstance().onRenderLOD();
         }
         else if (chunkSectionLayerGroup == ChunkSectionLayerGroup.TRANSLUCENT) {
             Profiler profiler = Profiler.getMainProfiler();

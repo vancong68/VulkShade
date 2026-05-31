@@ -100,6 +100,8 @@ public abstract class VRenderSystem {
     public static void initRenderer() {
         Vulkan.initVulkan(window);
 
+        net.vulkanmod.vulkshade.VulkShade.getInstance().onVulkanInitComplete();
+
         setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
     }
 

@@ -114,6 +114,8 @@ public class Renderer {
 
     private final List<Runnable> onResizeCallbacks = new ObjectArrayList<>();
 
+    public static Runnable postProcessCallback;
+
     public Renderer() {
         device = Vulkan.getVkDevice();
         framesNum = Initializer.CONFIG.frameQueueSize;

@@ -15,6 +15,7 @@ import net.vulkanmod.vulkan.framebuffer.RenderPass;
 import net.vulkanmod.vulkan.framebuffer.SwapChain;
 import net.vulkanmod.vulkan.profiling.GpuFrameProfiler;
 import net.vulkanmod.vulkan.shader.GraphicsPipeline;
+import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.texture.VTextureSelector;
 import net.vulkanmod.vulkan.texture.VulkanImage;
 import org.lwjgl.opengl.GL11;
@@ -47,9 +48,11 @@ public class DefaultMainPass implements MainPass {
     private RenderPass sceneMainRenderPass;
     private RenderPass sceneAuxRenderPass;
     private RenderPass fsrUpscaleRenderPass;
+    private RenderPass tonemapRenderPass;
 
     private Framebuffer sceneFramebuffer;
     private Framebuffer fsrUpscaleFramebuffer;
+    private Framebuffer tonemapFramebuffer;
 
     private GpuTexture[] swapChainColorAttachmentTextures;
     private GpuTextureView[] swapChainColorAttachmentTextureViews;
@@ -61,6 +64,9 @@ public class DefaultMainPass implements MainPass {
 
     private GpuTexture fsrUpscaleColorTexture;
     private GpuTextureView fsrUpscaleColorTextureView;
+
+    private GpuTexture tonemapColorTexture;
+    private GpuTextureView tonemapColorTextureView;
 
     private boolean renderingToSwapChain = true;
     private boolean fsrResolvedThisFrame = false;
@@ -86,6 +92,10 @@ public class DefaultMainPass implements MainPass {
 
     @Override
     public void end(VkCommandBuffer commandBuffer) {
+        if (Renderer.postProcessCallback != null) {
+            Renderer.postProcessCallback.run();
+        }
+
         if (isFsrEnabled() && !this.renderingToSwapChain) {
             resolveForGui(commandBuffer);
         }
@@ -246,11 +256,25 @@ public class DefaultMainPass implements MainPass {
         if (gpuProfiler != null) {
             gpuProfiler.beginStage(GpuFrameProfiler.Stage.FSR_RCAS);
         }
-        renderer.beginRenderPass(this.swapChainMainRenderPass, this.swapChain);
+        renderer.beginRenderPass(this.tonemapRenderPass, this.tonemapFramebuffer);
         drawFullscreenPass(finalPipeline, this.fsrUpscaleColorTextureView);
         renderer.endRenderPass(commandBuffer);
         if (gpuProfiler != null) {
             gpuProfiler.endStage(GpuFrameProfiler.Stage.FSR_RCAS);
+        }
+
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            this.tonemapFramebuffer.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        }
+
+        if (gpuProfiler != null) {
+            gpuProfiler.beginStage(GpuFrameProfiler.Stage.TONEMAP);
+        }
+        renderer.beginRenderPass(this.swapChainMainRenderPass, this.swapChain);
+        drawFullscreenPass(PipelineManager.getTonemapPipeline(), this.tonemapColorTextureView);
+        renderer.endRenderPass(commandBuffer);
+        if (gpuProfiler != null) {
+            gpuProfiler.endStage(GpuFrameProfiler.Stage.TONEMAP);
         }
 
         restoreFullscreenState();
@@ -338,6 +362,10 @@ public class DefaultMainPass implements MainPass {
             this.fsrUpscaleRenderPass.cleanUp();
             this.fsrUpscaleRenderPass = null;
         }
+        if (this.tonemapRenderPass != null) {
+            this.tonemapRenderPass.cleanUp();
+            this.tonemapRenderPass = null;
+        }
     }
 
     private void createSwapChainRenderPasses() {
@@ -375,6 +403,11 @@ public class DefaultMainPass implements MainPass {
         builder.getColorAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE);
         builder.getColorAttachmentInfo().setFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         this.fsrUpscaleRenderPass = builder.build();
+
+        builder = RenderPass.builder(this.tonemapFramebuffer);
+        builder.getColorAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE);
+        builder.getColorAttachmentInfo().setFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        this.tonemapRenderPass = builder.build();
     }
 
     private void createAttachmentTextures() {
@@ -427,8 +460,11 @@ public class DefaultMainPass implements MainPass {
         boolean upscaleMatches = this.fsrUpscaleFramebuffer != null
                 && this.fsrUpscaleFramebuffer.getWidth() == outputWidth
                 && this.fsrUpscaleFramebuffer.getHeight() == outputHeight;
+        boolean tonemapMatches = this.tonemapFramebuffer != null
+                && this.tonemapFramebuffer.getWidth() == outputWidth
+                && this.tonemapFramebuffer.getHeight() == outputHeight;
 
-        if (sceneMatches && upscaleMatches) {
+        if (sceneMatches && upscaleMatches && tonemapMatches) {
             return;
         }
 
@@ -471,7 +507,18 @@ public class DefaultMainPass implements MainPass {
         this.fsrUpscaleColorTexture = device.gpuTextureFromVulkanImage(upscaleColorAttachment);
         this.fsrUpscaleColorTextureView = device.createTextureView((VkGpuTexture) this.fsrUpscaleColorTexture);
 
-        if (this.sceneMainRenderPass != null || this.sceneAuxRenderPass != null || this.fsrUpscaleRenderPass != null) {
+        VulkanImage tonemapColorAttachment = VulkanImage.builder(outputWidth, outputHeight)
+                                                        .setName("Tonemap Color")
+                                                        .setFormat(this.swapChain.getColorAttachment().format)
+                                                        .setUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+                                                        .setLinearFiltering(true)
+                                                        .setClamp(true)
+                                                        .createVulkanImage();
+        this.tonemapFramebuffer = Framebuffer.builder(tonemapColorAttachment, null).build();
+        this.tonemapColorTexture = device.gpuTextureFromVulkanImage(tonemapColorAttachment);
+        this.tonemapColorTextureView = device.createTextureView((VkGpuTexture) this.tonemapColorTexture);
+
+        if (this.sceneMainRenderPass != null || this.sceneAuxRenderPass != null || this.fsrUpscaleRenderPass != null || this.tonemapRenderPass != null) {
             if (this.sceneMainRenderPass != null) {
                 this.sceneMainRenderPass.cleanUp();
             }
@@ -480,6 +527,10 @@ public class DefaultMainPass implements MainPass {
             }
             if (this.fsrUpscaleRenderPass != null) {
                 this.fsrUpscaleRenderPass.cleanUp();
+            }
+            if (this.tonemapRenderPass != null) {
+                this.tonemapRenderPass.cleanUp();
+                this.tonemapRenderPass = null;
             }
         }
 
@@ -507,6 +558,14 @@ public class DefaultMainPass implements MainPass {
             this.fsrUpscaleColorTexture.close();
             this.fsrUpscaleColorTexture = null;
         }
+        if (this.tonemapColorTextureView != null) {
+            this.tonemapColorTextureView.close();
+            this.tonemapColorTextureView = null;
+        }
+        if (this.tonemapColorTexture != null) {
+            this.tonemapColorTexture.close();
+            this.tonemapColorTexture = null;
+        }
         if (this.sceneFramebuffer != null) {
             this.sceneFramebuffer.cleanUp();
             this.sceneFramebuffer = null;
@@ -514,6 +573,10 @@ public class DefaultMainPass implements MainPass {
         if (this.fsrUpscaleFramebuffer != null) {
             this.fsrUpscaleFramebuffer.cleanUp();
             this.fsrUpscaleFramebuffer = null;
+        }
+        if (this.tonemapFramebuffer != null) {
+            this.tonemapFramebuffer.cleanUp();
+            this.tonemapFramebuffer = null;
         }
         if (this.sceneMainRenderPass != null) {
             this.sceneMainRenderPass.cleanUp();
@@ -526,6 +589,10 @@ public class DefaultMainPass implements MainPass {
         if (this.fsrUpscaleRenderPass != null) {
             this.fsrUpscaleRenderPass.cleanUp();
             this.fsrUpscaleRenderPass = null;
+        }
+        if (this.tonemapRenderPass != null) {
+            this.tonemapRenderPass.cleanUp();
+            this.tonemapRenderPass = null;
         }
     }
 }

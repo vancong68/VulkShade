@@ -87,6 +87,12 @@ public class VOptionScreen extends Screen {
                 Options.getOtherOpts()
         );
         this.optionPages.add(page);
+
+        page = new OptionPage(
+                Component.translatable("vulkanmod.options.pages.performance").getString(),
+                Options.getPerformanceOpts()
+        );
+        this.optionPages.add(page);
     }
 
     @Override

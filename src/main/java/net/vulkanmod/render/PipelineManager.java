@@ -23,7 +23,8 @@ public abstract class PipelineManager {
     static GraphicsPipeline
             terrainShader, terrainShaderEarlyZ, shadowPipeline,
             fastBlitPipeline, cloudsPipeline, skyPipeline, underwaterPipeline, volumetricPipeline,
-            fsrEasuPipeline, fsrRcasPipeline;
+            fsrEasuPipeline, fsrRcasPipeline,
+            tonemapPipeline;
 
     private static Function<TerrainRenderType, GraphicsPipeline> shaderGetter;
 
@@ -50,6 +51,7 @@ public abstract class PipelineManager {
         skyPipeline = createPipeline("sky", CustomVertexFormat.NONE);
         underwaterPipeline = createPipeline("underwater", CustomVertexFormat.NONE);
         volumetricPipeline = createPipeline("volumetric", CustomVertexFormat.NONE);
+        tonemapPipeline = createPipeline("tonemap", CustomVertexFormat.NONE);
     }
 
     private static GraphicsPipeline createPipeline(String configName, VertexFormat vertexFormat) {
@@ -118,6 +120,10 @@ public abstract class PipelineManager {
         return volumetricPipeline;
     }
 
+    public static GraphicsPipeline getTonemapPipeline() {
+        return tonemapPipeline;
+    }
+
     public static void destroyPipelines() {
         terrainShaderEarlyZ.cleanUp();
         terrainShader.cleanUp();
@@ -129,5 +135,6 @@ public abstract class PipelineManager {
         skyPipeline.cleanUp();
         underwaterPipeline.cleanUp();
         volumetricPipeline.cleanUp();
+        tonemapPipeline.cleanUp();
     }
 }

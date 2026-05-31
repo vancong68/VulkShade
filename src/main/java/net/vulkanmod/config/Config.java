@@ -39,6 +39,28 @@ public class Config {
     public boolean textureAnimations = true;
     public boolean volumetricLighting = true;
     public boolean blockEmissiveTextures = true;
+    public int shaderQuality = 1;
+
+    public boolean adaptivePerformance = true;
+    public boolean dynamicRenderDistance = true;
+    public boolean framePacing = true;
+    public int framePacingTarget = 60;
+    public boolean chunkBatchRendering = true;
+
+    public boolean voxyLODEnabled = true;
+    public int voxyLODQuality = 1;
+    public int voxyLODMaxDistance = 512;
+
+    public boolean featureSSAO = true;
+    public boolean featureBloom = true;
+    public boolean featurePBR = true;
+    public boolean featureShadows = true;
+    public boolean featureFog = true;
+    public boolean featureWaterReflect = true;
+    public boolean featureEmissive = true;
+    public boolean featureVolumetric = true;
+    public boolean featureMotionBlur = true;
+    public boolean featureLensFlare = true;
 
     public void write() {
 

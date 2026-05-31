@@ -6,6 +6,7 @@
   "vulkanmod.options.pages.optimizations": "Optimizations",
   "vulkanmod.options.pages.shaders": "Shaders",
   "vulkanmod.options.pages.other": "Other",
+  "vulkanmod.options.pages.performance": "Performance",
 
   "vulkanmod.options.buttons.apply": "Apply",
   "vulkanmod.options.buttons.kofi": "Support me",
@@ -92,5 +93,58 @@
   "vulkanmod.options.builderThreads": "Chunk Builder Threads",
   "vulkanmod.options.builderThreads.auto": "Auto",
 
-  "vulkanmod.options.textureAnimations": "Texture Animations"
+  "vulkanmod.options.textureAnimations": "Texture Animations",
+
+  "vulkanmod.options.qualityPreset": "Quality Preset",
+  "vulkanmod.options.qualityPreset.tooltip": "Select a predefined quality preset. Changing this will override multiple rendering options at once.",
+
+  "vulkanmod.options.shaderQuality": "Shader Quality",
+  "vulkanmod.options.shaderQuality.tooltip": "Controls overall shader quality preset.§r\n§aLOW: Best performance, minimal effects§r\n§eMEDIUM: Balanced (default)§r\n§cHIGH: Best visual quality, all effects enabled",
+
+  "vulkshade.effects.ssao": "SSAO",
+  "vulkshade.effects.bloom": "Bloom",
+  "vulkshade.effects.pbr": "PBR Lighting",
+  "vulkshade.effects.shadows": "Enhanced Shadows",
+
+  "vulkshade.fallback.vulkan": "Vulkan",
+  "vulkshade.fallback.opengl": "OpenGL (Fallback)",
+  "vulkshade.fallback.safemode": "Safe Mode Enabled",
+  "vulkshade.fallback.safemode.tooltip": "Vulkan compatibility issues detected. Running with reduced feature set.",
+
+  "vulkanmod.options.adaptivePerformance": "Adaptive Performance",
+  "vulkanmod.options.adaptivePerformance.tooltip": "Automatically adjust effect quality based on framerate. Lowers settings when FPS drops below 40, raises when above 80.",
+  "vulkanmod.options.framePacing": "Frame Pacing",
+  "vulkanmod.options.framePacing.tooltip": "Smoothens frame delivery by limiting frame time variance. Reduces micro-stutter.",
+  "vulkanmod.options.framePacingTarget": "Frame Pacing Target",
+  "vulkanmod.options.framePacingTarget.tooltip": "Target framerate for frame pacing. Set to Unlimited for no frame time cap.",
+  "vulkanmod.options.chunkBatchRendering": "Chunk Batch Rendering",
+  "vulkanmod.options.chunkBatchRendering.tooltip": "Merge chunk meshes into batches to reduce draw calls. Significantly improves CPU performance.",
+  "vulkanmod.options.dynamicRenderDistance": "Dynamic Render Distance",
+  "vulkanmod.options.dynamicRenderDistance.tooltip": "Automatically adjust render distance based on framerate. Reduces distance when FPS drops, increases when stable.",
+
+  "vulkanmod.options.voxyLOD": "Voxy LOD",
+  "vulkanmod.options.voxyLOD.tooltip": "Enables Voxy-style multi-layer voxel LOD rendering. Replaces distant chunks with aggregated mesh representations for extreme view distances.",
+  "vulkanmod.options.voxyLODQuality": "Voxy LOD Quality",
+  "vulkanmod.options.voxyLODQuality.tooltip": "Controls LOD transition distances and mesh detail. HIGH enables ultra-far rendering up to 512 blocks with smooth blending.",
+  "vulkanmod.options.voxyLODMaxDistance": "Voxy LOD Distance",
+  "vulkanmod.options.voxyLODMaxDistance.tooltip": "Maximum view distance for LOD terrain. Higher values render more distant terrain but increase memory usage.",
+
+  "vulkanmod.options.feature.fog": "Fog",
+  "vulkanmod.options.feature.fog.tooltip": "Enables biome-colored fog effects. Disable for a performance gain in foggy environments.",
+  "vulkanmod.options.feature.waterReflect": "Water Reflections",
+  "vulkanmod.options.feature.waterReflect.tooltip": "Enables screen-space water reflections. Significantly impacts water visual quality when enabled.",
+  "vulkanmod.options.feature.emissive": "Emissive Textures",
+  "vulkanmod.options.feature.emissive.tooltip": "Enables emissive block texture rendering. Disable if emissive textures are not needed.",
+  "vulkanmod.options.feature.volumetric": "Volumetric Lighting",
+  "vulkanmod.options.feature.volumetric.tooltip": "Enables volumetric god-ray effects. Has a significant performance cost.",
+
+  "vulkanmod.options.feature.ssao.tooltip": "Enables screen-space ambient occlusion for contact shadows on nearby geometry.",
+  "vulkanmod.options.feature.bloom.tooltip": "Enables bloom post-processing for bright light sources and emissive surfaces.",
+  "vulkanmod.options.feature.pbr.tooltip": "Enables physically-based deferred lighting with metalness/roughness workflow.",
+  "vulkanmod.options.feature.shadows.tooltip": "Enables enhanced shadow mapping with cascaded shadow maps.",
+
+  "vulkanmod.options.feature.motionBlur": "Motion Blur",
+  "vulkanmod.options.feature.motionBlur.tooltip": "Enables directional motion blur based on camera movement. Adds cinematic blur to fast motion.",
+  "vulkanmod.options.feature.lensFlare": "Lens Flare",
+  "vulkanmod.options.feature.lensFlare.tooltip": "Enables lens flare and ghosting effects from bright light sources. Simulates camera lens artifacts."
 }

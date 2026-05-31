@@ -2,6 +2,7 @@ package net.vulkanmod.vulkan;
 
 import net.vulkanmod.vulkan.device.Device;
 import net.vulkanmod.vulkan.device.DeviceManager;
+import net.vulkanmod.vulkshade.pipeline.PipelineCacheManager;
 import net.vulkanmod.vulkan.framebuffer.SwapChain;
 import net.vulkanmod.vulkan.memory.buffer.Buffer;
 import net.vulkanmod.vulkan.memory.MemoryManager;
@@ -110,6 +111,8 @@ public class Vulkan {
     }
 
     public static VkDevice getVkDevice() {
+        if (DeviceManager.vkDevice == null)
+            throw new IllegalStateException("VkDevice not initialized - Vulkan.initVulkan() must be called first");
         return DeviceManager.vkDevice;
     }
 
@@ -177,6 +180,9 @@ public class Vulkan {
         Pipeline.destroyPipelineCache();
 
         Renderer.getInstance().cleanUpResources();
+
+        PipelineCacheManager.destroy();
+        net.vulkanmod.vulkshade.VulkShade.getInstance().onShutdown();
 
         freeStagingBuffers();
 
@@ -399,6 +405,8 @@ public class Vulkan {
     }
 
     public static long getSurface() {
+        if (surface == 0L)
+            throw new IllegalStateException("Vulkan surface not initialized");
         return surface;
     }
 
