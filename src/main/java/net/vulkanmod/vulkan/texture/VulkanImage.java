@@ -6,6 +6,8 @@ import net.vulkanmod.vulkan.Vulkan;
 import net.vulkanmod.vulkan.memory.MemoryManager;
 import net.vulkanmod.vulkan.memory.buffer.StagingBuffer;
 import net.vulkanmod.vulkan.queue.CommandPool;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
@@ -22,6 +24,7 @@ import static org.lwjgl.vulkan.VK10.*;
 public class VulkanImage {
     public static int DefaultFormat = VK_FORMAT_R8G8B8A8_UNORM;
 
+    private static final Logger LOGGER = LogManager.getLogger("VulkanImage");
     private static final VkDevice DEVICE = Vulkan.getVkDevice();
 
     public final String name;
@@ -323,7 +326,16 @@ public class VulkanImage {
                 srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
                 sourceStage = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
             }
-            default -> throw new RuntimeException("Unexpected value:" + image.currentLayout);
+            case VK_IMAGE_LAYOUT_GENERAL -> {
+                srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+                sourceStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            }
+            default -> {
+                LOGGER.warn("Unexpected source layout {} for image {}, treating as GENERAL",
+                    image.currentLayout, image.getId());
+                srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+                sourceStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+            }
         }
 
         switch (newLayout) {
@@ -350,7 +362,16 @@ public class VulkanImage {
             case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR -> {
                 destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
             }
-            default -> throw new RuntimeException("Unexpected value:" + newLayout);
+            case VK_IMAGE_LAYOUT_GENERAL -> {
+                dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+                destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            }
+            default -> {
+                LOGGER.warn("Unexpected destination layout {} for image {}, treating as GENERAL",
+                    newLayout, image.getId());
+                dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+                destinationStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+            }
         }
 
         transitionLayout(stack, commandBuffer, image, image.currentLayout, newLayout,

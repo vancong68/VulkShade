@@ -31,6 +31,8 @@ public class LensFlareEffect {
 
     public void render(VkCommandBuffer cmdBuffer, VulkanImage sceneColor, VulkanImage outputImage) {
         if (!enabled) return;
+        if (lensFlarePipeline == null || !lensFlarePipeline.isValid()) return;
+        if (sceneColor == null || outputImage == null) return;
 
         lensFlarePipeline.bindImageDescriptor(0, sceneColor, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         lensFlarePipeline.bindImageDescriptor(1, outputImage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
@@ -58,9 +60,21 @@ public class LensFlareEffect {
 
     private void createPipelines() {
         lensFlarePipeline = new ComputePipeline("lens_flare");
+        lensFlarePipeline
+            .addDescriptorBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+            .addDescriptorBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         lensFlarePipeline.compileFromSource(generateLensFlareSource());
         lensFlarePipeline.create();
-        lensFlarePipeline.allocateDescriptorSet();
+        if (lensFlarePipeline.isValid()) {
+            lensFlarePipeline.allocateDescriptorSet();
+            if (!lensFlarePipeline.isValid()) {
+                LOGGER.warn("Lens flare pipeline allocation failed, disabling effect");
+                this.enabled = false;
+            }
+        } else {
+            LOGGER.warn("Lens flare pipeline compilation failed, disabling effect");
+            this.enabled = false;
+        }
     }
 
     private String generateLensFlareSource() {
@@ -79,8 +93,8 @@ public class LensFlareEffect {
                 if (coord.x >= size.x || coord.y >= size.y) return;
                 vec2 texelSize = 1.0 / vec2(size);
                 vec2 uv = (vec2(coord) + 0.5) * texelSize;
-                vec3 sceneColor = texture(sceneColor, uv).rgb;
-                float luminance = max(dot(sceneColor, vec3(0.2126, 0.7152, 0.0722)) - 0.8, 0.0);
+                vec3 colorSample = texture(sceneColor, uv).rgb;
+                float luminance = max(dot(colorSample, vec3(0.2126, 0.7152, 0.0722)) - 0.8, 0.0);
                 vec2 flareCenter = vec2(0.5, 0.5);
                 vec2 dir = uv - flareCenter;
                 vec3 flare = vec3(0.0);
@@ -99,7 +113,7 @@ public class LensFlareEffect {
                     float haloIntensity = luminance * haloFade * 0.25;
                     flare += haloColor * haloIntensity;
                 }
-                vec3 result = sceneColor + flare * flareIntensity;
+                vec3 result = colorSample + flare * flareIntensity;
                 imageStore(outputImage, coord, vec4(result, 1.0));
             }
             """.formatted(intensity, ghostCount);

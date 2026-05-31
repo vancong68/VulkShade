@@ -1,13 +1,21 @@
 package net.vulkanmod.vulkshade.effects;
 
+import net.vulkanmod.vulkan.memory.MemoryManager;
+import net.vulkanmod.vulkan.memory.MemoryTypes;
+import net.vulkanmod.vulkan.memory.buffer.Buffer;
 import net.vulkanmod.vulkan.texture.VulkanImage;
 import net.vulkanmod.vulkshade.shader.ComputePipeline;
+import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkCommandBuffer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.nio.ByteBuffer;
+
+import static org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 import static org.lwjgl.vulkan.VK10.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 import static org.lwjgl.vulkan.VK10.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+import static org.lwjgl.vulkan.VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 
 public class BloomEffect {
     private static final Logger LOGGER = LogManager.getLogger("VulkShade-Bloom");
@@ -26,12 +34,16 @@ public class BloomEffect {
     private ComputePipeline blurVPipeline;
     private ComputePipeline compositePipeline;
 
+    private Buffer bloomUBO;
+    private static final int UBO_SIZE = 16;
+
     public BloomEffect() {
     }
 
     public void initialize(int width, int height) {
         this.width = width;
         this.height = height;
+        createUBO();
         createMipChain();
         createPipelines();
     }
@@ -39,12 +51,13 @@ public class BloomEffect {
     public void render(VkCommandBuffer cmdBuffer, VulkanImage sceneColor,
                        VulkanImage outputImage) {
         if (!enabled) return;
-        extractBrightPipeline.bindImageDescriptor(0, sceneColor, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        if (extractBrightPipeline == null || !extractBrightPipeline.isValid()) return;
+        if (sceneColor == null || outputImage == null) return;
+        extractBrightPipeline.bindImageDescriptor(0, sceneColor, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         extractBrightPipeline.bindImageDescriptor(1, outputImage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-        int mipW = width / 2;
-        int mipH = height / 2;
+        bindUBO(extractBrightPipeline);
         extractBrightPipeline.dispatchWithDescriptors(cmdBuffer,
-            (mipW + 15) / 16, (mipH + 15) / 16, 1);
+            (width + 15) / 16, (height + 15) / 16, 1);
     }
 
     public void resize(int newWidth, int newHeight) {
@@ -58,12 +71,29 @@ public class BloomEffect {
         if (blurHPipeline != null) blurHPipeline.destroy();
         if (blurVPipeline != null) blurVPipeline.destroy();
         if (compositePipeline != null) compositePipeline.destroy();
+        if (bloomUBO != null) { bloomUBO.scheduleFree(); bloomUBO = null; }
     }
 
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
     public boolean isEnabled() { return enabled; }
     public void setIntensity(float intensity) { this.intensity = intensity; }
     public void setThreshold(float threshold) { this.threshold = threshold; }
+
+    private void createUBO() {
+        bloomUBO = new Buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, MemoryTypes.HOST_MEM);
+        bloomUBO.createBuffer(UBO_SIZE);
+    }
+
+    private void bindUBO(ComputePipeline pipeline) {
+        if (bloomUBO == null) return;
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            ByteBuffer data = stack.malloc(UBO_SIZE);
+            data.putFloat(0, intensity);
+            data.putFloat(4, threshold);
+            bloomUBO.copyBuffer(data, UBO_SIZE);
+        }
+        pipeline.bindUBO(2, bloomUBO);
+    }
 
     private void createMipChain() {
         mipTextures = new VulkanImage[mipLevels];
@@ -78,17 +108,42 @@ public class BloomEffect {
 
     private void createPipelines() {
         extractBrightPipeline = new ComputePipeline("bloom_extract");
+        extractBrightPipeline
+            .addDescriptorBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+            .addDescriptorBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+            .addDescriptorBinding(2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
         extractBrightPipeline.compileFromSource(generateExtractSource());
         extractBrightPipeline.create();
-        extractBrightPipeline.allocateDescriptorSet();
+        if (extractBrightPipeline.isValid()) {
+            extractBrightPipeline.allocateDescriptorSet();
+            if (!extractBrightPipeline.isValid()) {
+                LOGGER.warn("Extract pipeline allocation failed");
+                this.enabled = false;
+            }
+        } else {
+            LOGGER.warn("Extract pipeline compilation failed, disabling bloom");
+            this.enabled = false;
+        }
 
         blurHPipeline = new ComputePipeline("bloom_blur_h");
+        blurHPipeline
+            .addDescriptorBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+            .addDescriptorBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         blurHPipeline.compileFromSource(generateBlurHSource());
         blurHPipeline.create();
+        if (blurHPipeline.isValid()) {
+            blurHPipeline.allocateDescriptorSet();
+        }
 
         blurVPipeline = new ComputePipeline("bloom_blur_v");
+        blurVPipeline
+            .addDescriptorBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+            .addDescriptorBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         blurVPipeline.compileFromSource(generateBlurVSource());
         blurVPipeline.create();
+        if (blurVPipeline.isValid()) {
+            blurVPipeline.allocateDescriptorSet();
+        }
     }
 
     private String generateExtractSource() {
@@ -97,7 +152,7 @@ public class BloomEffect {
             layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
             layout(binding = 0, rgba16f) uniform readonly image2D srcImage;
             layout(binding = 1, rgba16f) uniform writeonly image2D dstImage;
-            layout(binding = 2) uniform BloomData {
+            layout(binding = 2, std140) uniform BloomData {
                 float intensity;
                 float threshold;
             };

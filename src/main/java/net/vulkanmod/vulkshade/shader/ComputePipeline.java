@@ -42,6 +42,7 @@ public class ComputePipeline {
     private long descriptorSet;
     private List<UBO> buffers = new ArrayList<>();
     private List<ImageDescriptor> imageDescriptors = new ArrayList<>();
+    private final List<BindingInfo> explicitBindings = new ArrayList<>();
     private PushConstants pushConstants;
     private boolean valid;
 
@@ -70,6 +71,12 @@ public class ComputePipeline {
 
     public void create() {
         destroy();
+
+        if (this.computeSPIRV == null) {
+            LOGGER.error("Cannot create compute pipeline '{}': no SPIR-V bytecode", name);
+            this.valid = false;
+            return;
+        }
 
         try (MemoryStack stack = stackPush()) {
             createDescriptorSetLayout(stack);
@@ -104,13 +111,40 @@ public class ComputePipeline {
     }
 
     public void allocateDescriptorSet() {
-        if (descriptorSetLayout == VK_NULL_HANDLE) return;
-        this.descriptorPool = DescriptorPoolManager.getInstance().acquirePool(descriptorSetLayout);
-        this.descriptorSet = DescriptorPoolManager.getInstance().allocateDescriptorSet(descriptorPool, descriptorSetLayout);
+        if (!valid) {
+            LOGGER.warn("Cannot allocate descriptor set for invalid pipeline '{}'", name);
+            return;
+        }
+        if (descriptorSetLayout == VK_NULL_HANDLE) {
+            LOGGER.warn("Cannot allocate descriptor set for '{}': no descriptor set layout", name);
+            return;
+        }
+        DescriptorPoolManager poolManager = DescriptorPoolManager.getInstance();
+        if (poolManager == null) {
+            LOGGER.warn("DescriptorPoolManager not available, skipping descriptor set allocation for '{}'", name);
+            return;
+        }
+        this.descriptorPool = poolManager.acquirePool(descriptorSetLayout);
+        if (this.descriptorPool == VK_NULL_HANDLE) {
+            LOGGER.warn("Failed to acquire descriptor pool for '{}', skipping descriptor set allocation", name);
+            return;
+        }
+        this.descriptorSet = poolManager.allocateDescriptorSet(descriptorPool, descriptorSetLayout);
+        if (this.descriptorSet == VK_NULL_HANDLE) {
+            LOGGER.warn("Failed to allocate descriptor set for '{}'", name);
+        }
     }
 
     public void bindImageDescriptor(int binding, VulkanImage image, int descriptorType) {
         if (descriptorSet == VK_NULL_HANDLE) return;
+        if (image == null) {
+            LOGGER.warn("Cannot bind null image to descriptor binding {}", binding);
+            return;
+        }
+        if (image.getImageView() == VK_NULL_HANDLE) {
+            LOGGER.warn("Image {} has null image view, skipping descriptor binding {}", image, binding);
+            return;
+        }
         try (MemoryStack stack = stackPush()) {
             int layout = descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
                 ? VK_IMAGE_LAYOUT_GENERAL
@@ -120,7 +154,11 @@ public class ComputePipeline {
             imageInfo.imageLayout(layout);
             imageInfo.imageView(image.getImageView());
             if (descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
-                imageInfo.sampler(image.getSampler());
+                if (image.getSampler() == VK_NULL_HANDLE) {
+                    LOGGER.warn("Image {} has null sampler for combined image sampler binding {}", image, binding);
+                } else {
+                    imageInfo.sampler(image.getSampler());
+                }
             }
 
             VkWriteDescriptorSet.Buffer write = VkWriteDescriptorSet.calloc(1, stack);
@@ -161,12 +199,35 @@ public class ComputePipeline {
         }
     }
 
+    public void bindUBO(int binding, Buffer buffer) {
+        if (descriptorSet == VK_NULL_HANDLE || buffer == null) return;
+        try (MemoryStack stack = stackPush()) {
+            VkDescriptorBufferInfo.Buffer bufferInfo = VkDescriptorBufferInfo.calloc(1, stack);
+            bufferInfo.buffer(buffer.getId());
+            bufferInfo.offset(0);
+            bufferInfo.range(buffer.getBufferSize());
+
+            VkWriteDescriptorSet.Buffer write = VkWriteDescriptorSet.calloc(1, stack);
+            write.get(0)
+                .sType(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET)
+                .dstSet(descriptorSet)
+                .dstBinding(binding)
+                .descriptorCount(1)
+                .descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+                .pBufferInfo(bufferInfo);
+
+            vkUpdateDescriptorSets(DEVICE, write, null);
+        }
+    }
+
     public void dispatchWithDescriptors(VkCommandBuffer commandBuffer, int groupX, int groupY, int groupZ) {
         if (!valid) return;
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
         if (descriptorSet != VK_NULL_HANDLE) {
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                pipelineLayout, 0, stackPush().longs(descriptorSet), null);
+            try (MemoryStack stack = stackPush()) {
+                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                    pipelineLayout, 0, stack.longs(descriptorSet), null);
+            }
         }
         if (pushConstants != null) {
             try (MemoryStack stack = stackPush()) {
@@ -215,6 +276,13 @@ public class ComputePipeline {
     public void addUBO(UBO ubo) { this.buffers.add(ubo); }
     public void addImageDescriptor(ImageDescriptor desc) { this.imageDescriptors.add(desc); }
 
+    public ComputePipeline addDescriptorBinding(int binding, int descriptorType) {
+        this.explicitBindings.add(new BindingInfo(binding, descriptorType));
+        return this;
+    }
+
+    private record BindingInfo(int binding, int descriptorType) {}
+
     private void createShaderModule() {
         try (MemoryStack stack = stackPush()) {
             VkShaderModuleCreateInfo createInfo = VkShaderModuleCreateInfo.calloc(stack);
@@ -229,7 +297,7 @@ public class ComputePipeline {
     }
 
     private void createDescriptorSetLayout(MemoryStack stack) {
-        int bindingCount = buffers.size() + imageDescriptors.size();
+        int bindingCount = buffers.size() + imageDescriptors.size() + explicitBindings.size();
         if (bindingCount == 0) return;
 
         VkDescriptorSetLayoutBinding.Buffer bindings = VkDescriptorSetLayoutBinding.calloc(bindingCount, stack);
@@ -247,6 +315,14 @@ public class ComputePipeline {
                 .binding(desc.getBinding())
                 .descriptorCount(1)
                 .descriptorType(desc.getType())
+                .stageFlags(VK_SHADER_STAGE_COMPUTE_BIT);
+            idx++;
+        }
+        for (BindingInfo bi : explicitBindings) {
+            bindings.get(idx)
+                .binding(bi.binding())
+                .descriptorCount(1)
+                .descriptorType(bi.descriptorType())
                 .stageFlags(VK_SHADER_STAGE_COMPUTE_BIT);
             idx++;
         }

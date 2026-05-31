@@ -32,6 +32,12 @@ public class ShaderWatcher {
         if (running) return;
         if (!Files.isDirectory(shaderDir)) return;
 
+        if (!shaderDir.getFileSystem().provider().getScheme().equals("file")) {
+            LOGGER.info("Shader hot-reload unavailable: shader path is inside a JAR/zip (scheme={})",
+                shaderDir.getFileSystem().provider().getScheme());
+            return;
+        }
+
         try {
             this.watchService = FileSystems.getDefault().newWatchService();
             registerRecursive(shaderDir);
@@ -67,6 +73,7 @@ public class ShaderWatcher {
 
     private void registerRecursive(Path dir) throws IOException {
         Files.walk(dir).filter(Files::isDirectory).forEach(d -> {
+            if (!d.getFileSystem().provider().getScheme().equals("file")) return;
             try {
                 d.register(watchService, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
             } catch (IOException e) {

@@ -6,6 +6,8 @@ import com.mojang.blaze3d.textures.GpuTextureView;
 import net.minecraft.client.Minecraft;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.render.PipelineManager;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import net.vulkanmod.render.engine.VkGpuDevice;
 import net.vulkanmod.render.engine.VkGpuTexture;
 import net.vulkanmod.vulkan.Renderer;
@@ -37,6 +39,8 @@ import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
 import static org.lwjgl.vulkan.VK10.vkEndCommandBuffer;
 
 public class DefaultMainPass implements MainPass {
+    private static final Logger LOGGER = LogManager.getLogger("DefaultMainPass");
+
     public static DefaultMainPass create() {
         return new DefaultMainPass();
     }
@@ -92,15 +96,14 @@ public class DefaultMainPass implements MainPass {
 
     @Override
     public void end(VkCommandBuffer commandBuffer) {
-        if (Renderer.postProcessCallback != null) {
-            Renderer.postProcessCallback.run();
-        }
+        long startNanos = System.nanoTime();
+
+        Renderer.getInstance().endRenderPass(commandBuffer);
 
         if (isFsrEnabled() && !this.renderingToSwapChain) {
             resolveForGui(commandBuffer);
+            Renderer.getInstance().endRenderPass(commandBuffer);
         }
-
-        Renderer.getInstance().endRenderPass(commandBuffer);
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
             this.swapChain.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);

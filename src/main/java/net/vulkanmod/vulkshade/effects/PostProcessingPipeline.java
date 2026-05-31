@@ -2,6 +2,7 @@ package net.vulkanmod.vulkshade.effects;
 
 import net.vulkanmod.vulkan.texture.VulkanImage;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.vulkan.*;
 import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkImageCopy;
 import org.apache.logging.log4j.LogManager;
@@ -57,26 +58,58 @@ public class PostProcessingPipeline {
 
     public void render(VkCommandBuffer cmdBuffer, VulkanImage sceneColor) {
         if (!initialized) return;
+        if (sceneColor == null) {
+            LOGGER.warn("Post-processing skipped: null scene color");
+            return;
+        }
+        if (tempBuffer == null) {
+            LOGGER.warn("Post-processing skipped: null temp buffer");
+            return;
+        }
+
+        int effectsRun = 0;
 
         if (bloom != null && bloom.isEnabled()) {
-            transitionForRead(cmdBuffer, sceneColor);
-            transitionForWrite(cmdBuffer, tempBuffer);
-            bloom.render(cmdBuffer, sceneColor, tempBuffer);
-            blitBack(cmdBuffer, tempBuffer, sceneColor);
+            try {
+                transitionForRead(cmdBuffer, sceneColor);
+                transitionForWrite(cmdBuffer, tempBuffer);
+                clearImageToBlack(cmdBuffer, tempBuffer);
+                bloom.render(cmdBuffer, sceneColor, tempBuffer);
+                blitBack(cmdBuffer, tempBuffer, sceneColor);
+                effectsRun++;
+            } catch (Exception e) {
+                LOGGER.error("Bloom effect failed, disabling for this frame", e);
+            }
         }
 
         if (lensFlare != null && lensFlare.isEnabled()) {
-            transitionForRead(cmdBuffer, sceneColor);
-            transitionForWrite(cmdBuffer, tempBuffer);
-            lensFlare.render(cmdBuffer, sceneColor, tempBuffer);
-            blitBack(cmdBuffer, tempBuffer, sceneColor);
+            try {
+                transitionForRead(cmdBuffer, sceneColor);
+                transitionForWrite(cmdBuffer, tempBuffer);
+                clearImageToBlack(cmdBuffer, tempBuffer);
+                lensFlare.render(cmdBuffer, sceneColor, tempBuffer);
+                blitBack(cmdBuffer, tempBuffer, sceneColor);
+                effectsRun++;
+            } catch (Exception e) {
+                LOGGER.error("Lens flare effect failed, disabling for this frame", e);
+            }
         }
 
         if (motionBlur != null && motionBlur.isEnabled()) {
-            transitionForRead(cmdBuffer, sceneColor);
-            transitionForWrite(cmdBuffer, tempBuffer);
-            motionBlur.render(cmdBuffer, sceneColor, tempBuffer);
-            blitBack(cmdBuffer, tempBuffer, sceneColor);
+            try {
+                transitionForRead(cmdBuffer, sceneColor);
+                transitionForWrite(cmdBuffer, tempBuffer);
+                clearImageToBlack(cmdBuffer, tempBuffer);
+                motionBlur.render(cmdBuffer, sceneColor, tempBuffer);
+                blitBack(cmdBuffer, tempBuffer, sceneColor);
+                effectsRun++;
+            } catch (Exception e) {
+                LOGGER.error("Motion blur effect failed, disabling for this frame", e);
+            }
+        }
+
+        if (effectsRun > 0 && LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Post-processing ran {} effects this frame", effectsRun);
         }
     }
 
@@ -110,14 +143,51 @@ public class PostProcessingPipeline {
         }
     }
 
+    private void clearImageToBlack(VkCommandBuffer cmd, VulkanImage img) {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            VkClearColorValue clearColor = VkClearColorValue.calloc(stack);
+            clearColor.float32(0, 0.0f);
+            clearColor.float32(1, 0.0f);
+            clearColor.float32(2, 0.0f);
+            clearColor.float32(3, 0.0f);
+
+            VkImageSubresourceRange range = VkImageSubresourceRange.calloc(stack);
+            range.aspectMask(VK_IMAGE_ASPECT_COLOR_BIT);
+            range.baseMipLevel(0);
+            range.levelCount(1);
+            range.baseArrayLayer(0);
+            range.layerCount(1);
+
+            vkCmdClearColorImage(cmd, img.getId(), VK_IMAGE_LAYOUT_GENERAL, clearColor, range);
+
+            VkImageMemoryBarrier.Buffer barrier = VkImageMemoryBarrier.calloc(1, stack);
+            barrier.sType(VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER);
+            barrier.srcAccessMask(VK_ACCESS_TRANSFER_WRITE_BIT);
+            barrier.dstAccessMask(VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+            barrier.oldLayout(VK_IMAGE_LAYOUT_GENERAL);
+            barrier.newLayout(VK_IMAGE_LAYOUT_GENERAL);
+            barrier.srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+            barrier.dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+            barrier.image(img.getId());
+            barrier.subresourceRange().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT);
+            barrier.subresourceRange().baseMipLevel(0);
+            barrier.subresourceRange().levelCount(1);
+            barrier.subresourceRange().baseArrayLayer(0);
+            barrier.subresourceRange().layerCount(1);
+
+            vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                0, null, null, barrier);
+        }
+    }
+
     private void blitBack(VkCommandBuffer cmd, VulkanImage src, VulkanImage dst) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             src.transitionImageLayout(stack, cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
             dst.transitionImageLayout(stack, cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
             VkImageCopy.Buffer copyBuf = VkImageCopy.calloc(1, stack);
-            copyBuf.srcSubresource().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).layerCount(1);
-            copyBuf.dstSubresource().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).layerCount(1);
+            copyBuf.srcSubresource().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).mipLevel(0).baseArrayLayer(0).layerCount(1);
+            copyBuf.dstSubresource().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).mipLevel(0).baseArrayLayer(0).layerCount(1);
             copyBuf.extent().width(Math.min(src.width, dst.width));
             copyBuf.extent().height(Math.min(src.height, dst.height));
             copyBuf.extent().depth(1);
@@ -125,6 +195,7 @@ public class PostProcessingPipeline {
                 dst.getId(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, copyBuf);
 
             dst.transitionImageLayout(stack, cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            src.transitionImageLayout(stack, cmd, VK_IMAGE_LAYOUT_GENERAL);
         }
     }
 }

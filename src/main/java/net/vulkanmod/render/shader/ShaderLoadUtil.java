@@ -14,6 +14,7 @@ import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.FileSystems;
+import java.nio.file.FileSystemNotFoundException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -86,23 +87,34 @@ public abstract class ShaderLoadUtil {
         String basePath = "%s/shaders/%s".formatted(RESOURCES_PATH, path);
         String configPath = "%s/%s/%s.json".formatted(basePath, rendertype, rendertype);
 
-        Path filePath;
+        if (tryPathExists(configPath)) return configPath;
+
+        String fallbackPath = "%s/%s.json".formatted(basePath, rendertype);
+        if (tryPathExists(fallbackPath)) return fallbackPath;
+
+        return null;
+    }
+
+    private static boolean tryPathExists(String uriString) {
         try {
-            filePath = FileSystems.getDefault().getPath(configPath);
-
-            if (!Files.exists(filePath)) {
-                configPath = "%s/%s.json".formatted(basePath, rendertype);
-                filePath = FileSystems.getDefault().getPath(configPath);
+            URI uri = new URI(uriString);
+            if (uri.getScheme() == null) return false;
+            if (uri.getScheme().equals("jar") || uri.getScheme().equals("zip")) {
+                String entry = uri.getSchemeSpecificPart();
+                if (entry.contains("!")) {
+                    String innerPath = entry.substring(entry.indexOf('!') + 1);
+                    return ShaderLoadUtil.class.getResource(innerPath) != null;
+                }
+                return false;
             }
-
-            if (!Files.exists(filePath)) {
-                return null;
+            if (uri.getScheme().equals("file")) {
+                Path p = Paths.get(uri);
+                return Files.exists(p);
             }
-        } catch (Throwable e) {
-            throw new RuntimeException(e);
+            return false;
+        } catch (URISyntaxException e) {
+            return false;
         }
-
-        return filePath.toString();
     }
 
     public static JsonObject getJsonConfig(String path, String rendertype) {
@@ -252,16 +264,34 @@ public abstract class ShaderLoadUtil {
         return new String[] {path.substring(0, idx), path.substring(idx + 1)};
     }
 
-    public static InputStream getInputStream(String path) {
+    public static InputStream getInputStream(String uriString) {
         try {
-            var path1 = Paths.get(new URI(path));
+            URI uri = new URI(uriString);
+            if (uri.getScheme() == null) return null;
 
-            if (!Files.exists(path1))
+            if (uri.getScheme().equals("jar") || uri.getScheme().equals("zip")) {
+                String full = uriString;
+                if (full.contains("!")) {
+                    String innerPath = full.substring(full.indexOf('!') + 1);
+                    InputStream in = ShaderLoadUtil.class.getResourceAsStream(innerPath);
+                    if (in == null) {
+                        String alt = innerPath.startsWith("/") ? innerPath : "/" + innerPath;
+                        in = ShaderLoadUtil.class.getResourceAsStream(alt);
+                    }
+                    return in;
+                }
                 return null;
+            }
 
-            return Files.newInputStream(path1);
+            if (uri.getScheme().equals("file")) {
+                Path filePath = Paths.get(uri);
+                if (!Files.exists(filePath)) return null;
+                return Files.newInputStream(filePath);
+            }
+
+            return null;
         } catch (URISyntaxException | IOException e) {
-            throw new RuntimeException(e);
+            return null;
         }
     }
 }

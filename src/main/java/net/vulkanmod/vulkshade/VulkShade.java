@@ -2,7 +2,6 @@ package net.vulkanmod.vulkshade;
 
 import net.vulkanmod.Initializer;
 import net.vulkanmod.vulkan.Renderer;
-import net.vulkanmod.vulkan.pass.DefaultMainPass;
 import net.vulkanmod.vulkshade.config.QualityPreset;
 import net.vulkanmod.vulkshade.config.VulkShadeConfig;
 import net.vulkanmod.vulkshade.effects.PostProcessingPipeline;
@@ -34,6 +33,7 @@ public class VulkShade {
     private ChunkMeshStreamer chunkMeshStreamer;
     private VoxyLODManager voxyLODManager;
     private PostProcessingPipeline postProcessingPipeline;
+    private boolean postProcessingReady;
 
     private VulkShade() {
     }
@@ -113,27 +113,6 @@ public class VulkShade {
             if (cullingSystemUpgrade != null) {
                 cullingSystemUpgrade.initialize();
             }
-
-            this.postProcessingPipeline = new PostProcessingPipeline();
-            int fbWidth = Renderer.getInstance().getSwapChain().getWidth();
-            int fbHeight = Renderer.getInstance().getSwapChain().getHeight();
-            if (fbWidth > 0 && fbHeight > 0) {
-                var sceneColor = Renderer.getInstance().getSwapChain().getColorAttachment();
-                this.postProcessingPipeline.initialize(fbWidth, fbHeight, sceneColor);
-            }
-
-            Renderer.getInstance().addOnResizeCallback(() -> {
-                if (postProcessingPipeline != null) {
-                    int w = Renderer.getInstance().getSwapChain().getWidth();
-                    int h = Renderer.getInstance().getSwapChain().getHeight();
-                    if (w > 0 && h > 0) {
-                        postProcessingPipeline.resize(w, h, Renderer.getInstance().getSwapChain().getColorAttachment());
-                    }
-                }
-            });
-
-            Renderer.postProcessCallback = this::onPostProcess;
-
             PipelineCacheManager.saveToDisk();
             LOGGER.info("FrameSyncManager initialized with {} frames",
                 frameSyncManager.getFrameCount());
@@ -149,6 +128,51 @@ public class VulkShade {
         if (chunkMeshStreamer != null) chunkMeshStreamer.beginFrame();
         if (performanceScaler != null) performanceScaler.beginFrame(frameStartTime);
         if (voxyLODManager != null) voxyLODManager.updateTiles();
+
+        if (!postProcessingReady) {
+            initPostProcessing();
+        }
+    }
+
+    private void initPostProcessing() {
+        Renderer renderer = Renderer.getInstance();
+        if (renderer == null) return;
+
+        var swapChain = renderer.getSwapChain();
+        if (swapChain == null) return;
+
+        int fbWidth = swapChain.getWidth();
+        int fbHeight = swapChain.getHeight();
+        if (fbWidth <= 0 || fbHeight <= 0) return;
+
+        try {
+            this.postProcessingPipeline = new PostProcessingPipeline();
+            var sceneColor = swapChain.getColorAttachment();
+            if (sceneColor != null) {
+                this.postProcessingPipeline.initialize(fbWidth, fbHeight, sceneColor);
+            }
+
+            renderer.addOnResizeCallback(() -> {
+                if (postProcessingPipeline != null && initialized) {
+                    int w = renderer.getSwapChain().getWidth();
+                    int h = renderer.getSwapChain().getHeight();
+                    if (w > 0 && h > 0) {
+                        var color = renderer.getSwapChain().getColorAttachment();
+                        if (color != null) {
+                            postProcessingPipeline.resize(w, h, color);
+                        }
+                    }
+                }
+            });
+
+            Renderer.postProcessCallback = this::onPostProcess;
+            this.postProcessingReady = true;
+            LOGGER.info("Post-processing pipeline initialized ({}x{})", fbWidth, fbHeight);
+        } catch (Exception e) {
+            LOGGER.error("Failed to initialize post-processing pipeline, disabling effects", e);
+            this.postProcessingPipeline = null;
+            this.postProcessingReady = true;
+        }
     }
 
     public void onRenderLOD() {
@@ -159,8 +183,24 @@ public class VulkShade {
     public void onPostProcess() {
         if (!initialized) return;
         if (postProcessingPipeline != null) {
+            Renderer renderer = Renderer.getInstance();
+            if (renderer == null) return;
+            var swapChain = renderer.getSwapChain();
+            if (swapChain == null) return;
+            var sceneColor = swapChain.getColorAttachment();
+            if (sceneColor == null) {
+                LOGGER.warn("[Frame] Swap chain color attachment is null, skipping post-processing");
+                return;
+            }
             var cmd = Renderer.getCommandBuffer();
-            var sceneColor = Renderer.getInstance().getSwapChain().getColorAttachment();
+            if (cmd == null) {
+                LOGGER.warn("[Frame] Command buffer is null, skipping post-processing");
+                return;
+            }
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("[Frame] Running post-processing pipeline on image {} ({}x{})",
+                    sceneColor.getId(), sceneColor.width, sceneColor.height);
+            }
             postProcessingPipeline.render(cmd, sceneColor);
         }
     }

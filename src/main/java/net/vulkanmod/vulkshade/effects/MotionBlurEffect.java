@@ -31,6 +31,8 @@ public class MotionBlurEffect {
 
     public void render(VkCommandBuffer cmdBuffer, VulkanImage sceneColor, VulkanImage outputImage) {
         if (!enabled) return;
+        if (motionBlurPipeline == null || !motionBlurPipeline.isValid()) return;
+        if (sceneColor == null || outputImage == null) return;
 
         motionBlurPipeline.bindImageDescriptor(0, sceneColor, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         motionBlurPipeline.bindImageDescriptor(1, outputImage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
@@ -58,9 +60,21 @@ public class MotionBlurEffect {
 
     private void createPipelines() {
         motionBlurPipeline = new ComputePipeline("motion_blur");
+        motionBlurPipeline
+            .addDescriptorBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+            .addDescriptorBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         motionBlurPipeline.compileFromSource(generateMotionBlurSource());
         motionBlurPipeline.create();
-        motionBlurPipeline.allocateDescriptorSet();
+        if (motionBlurPipeline.isValid()) {
+            motionBlurPipeline.allocateDescriptorSet();
+            if (!motionBlurPipeline.isValid()) {
+                LOGGER.warn("Motion blur pipeline allocation failed, disabling effect");
+                this.enabled = false;
+            }
+        } else {
+            LOGGER.warn("Motion blur pipeline compilation failed, disabling effect");
+            this.enabled = false;
+        }
     }
 
     private String generateMotionBlurSource() {

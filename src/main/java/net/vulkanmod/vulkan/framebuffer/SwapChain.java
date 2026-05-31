@@ -52,6 +52,17 @@ public class SwapChain extends Framebuffer {
     }
 
     public void recreate() {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            VkPhysicalDevice physicalDevice = Vulkan.getVkDevice().getPhysicalDevice();
+            DeviceManager.SurfaceProperties surfaceProperties = DeviceManager.querySurfaceProperties(physicalDevice, stack);
+            VkExtent2D extent = getExtent(surfaceProperties.capabilities);
+            if (extent.width() == 0 && extent.height() == 0) {
+                this.width = 0;
+                this.height = 0;
+                return;
+            }
+        }
+
         if (this.depthAttachment != null) {
             this.depthAttachment.free();
             this.depthAttachment = null;
@@ -75,12 +86,6 @@ public class SwapChain extends Framebuffer {
             VkExtent2D extent = getExtent(surfaceProperties.capabilities);
 
             if (extent.width() == 0 && extent.height() == 0) {
-                if (this.swapChainId != VK_NULL_HANDLE) {
-                    this.swapChainImages.forEach(image -> vkDestroyImageView(device, image.getImageView(), null));
-                    vkDestroySwapchainKHR(device, this.swapChainId, null);
-                    this.swapChainId = VK_NULL_HANDLE;
-                }
-
                 this.width = 0;
                 this.height = 0;
                 return;
@@ -107,7 +112,7 @@ public class SwapChain extends Framebuffer {
             createInfo.imageColorSpace(surfaceFormat.colorSpace());
             createInfo.imageExtent(extent);
             createInfo.imageArrayLayers(1);
-            createInfo.imageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+            createInfo.imageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
             Queue.QueueFamilyIndices indices = Queue.getQueueFamilies();
 
