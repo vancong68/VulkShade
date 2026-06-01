@@ -46,6 +46,12 @@ public class ComputePipeline {
     private PushConstants pushConstants;
     private boolean valid;
 
+    private boolean deferActive;
+    private MemoryStack deferStack;
+    private VkWriteDescriptorSet.Buffer deferWrites;
+    private int deferCount;
+    private static final int DEFER_MAX = 8;
+
     public ComputePipeline(String name) {
         this.name = name;
     }
@@ -145,6 +151,31 @@ public class ComputePipeline {
             LOGGER.warn("Image {} has null image view, skipping descriptor binding {}", image, binding);
             return;
         }
+
+        if (deferActive && deferStack != null) {
+            int layout = descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+                ? VK_IMAGE_LAYOUT_GENERAL
+                : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+            VkDescriptorImageInfo.Buffer imageInfo = VkDescriptorImageInfo.calloc(1, deferStack);
+            imageInfo.imageLayout(layout);
+            imageInfo.imageView(image.getImageView());
+            if (descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+                if (image.getSampler() != VK_NULL_HANDLE) {
+                    imageInfo.sampler(image.getSampler());
+                }
+            }
+
+            deferWrites.get(deferCount++)
+                .sType(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET)
+                .dstSet(descriptorSet)
+                .dstBinding(binding)
+                .descriptorCount(1)
+                .descriptorType(descriptorType)
+                .pImageInfo(imageInfo);
+            return;
+        }
+
         try (MemoryStack stack = stackPush()) {
             int layout = descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
                 ? VK_IMAGE_LAYOUT_GENERAL
@@ -201,6 +232,23 @@ public class ComputePipeline {
 
     public void bindUBO(int binding, Buffer buffer) {
         if (descriptorSet == VK_NULL_HANDLE || buffer == null) return;
+
+        if (deferActive && deferStack != null) {
+            VkDescriptorBufferInfo.Buffer bufferInfo = VkDescriptorBufferInfo.calloc(1, deferStack);
+            bufferInfo.buffer(buffer.getId());
+            bufferInfo.offset(0);
+            bufferInfo.range(buffer.getBufferSize());
+
+            deferWrites.get(deferCount++)
+                .sType(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET)
+                .dstSet(descriptorSet)
+                .dstBinding(binding)
+                .descriptorCount(1)
+                .descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+                .pBufferInfo(bufferInfo);
+            return;
+        }
+
         try (MemoryStack stack = stackPush()) {
             VkDescriptorBufferInfo.Buffer bufferInfo = VkDescriptorBufferInfo.calloc(1, stack);
             bufferInfo.buffer(buffer.getId());
@@ -218,6 +266,29 @@ public class ComputePipeline {
 
             vkUpdateDescriptorSets(DEVICE, write, null);
         }
+    }
+
+    public void beginDefer() {
+        if (descriptorSet == VK_NULL_HANDLE) return;
+        this.deferStack = stackPush();
+        this.deferWrites = VkWriteDescriptorSet.calloc(DEFER_MAX, deferStack);
+        this.deferCount = 0;
+        this.deferActive = true;
+    }
+
+    public void endDefer() {
+        if (!deferActive) return;
+        this.deferActive = false;
+        if (deferCount > 0 && descriptorSet != VK_NULL_HANDLE) {
+            deferWrites.limit(deferCount);
+            vkUpdateDescriptorSets(DEVICE, deferWrites, null);
+        }
+        if (deferStack != null) {
+            deferStack.close();
+            deferStack = null;
+        }
+        deferWrites = null;
+        deferCount = 0;
     }
 
     public void dispatchWithDescriptors(VkCommandBuffer commandBuffer, int groupX, int groupY, int groupZ) {

@@ -1,10 +1,10 @@
 package net.vulkanmod.vulkshade.effects;
 
 import net.vulkanmod.vulkan.texture.VulkanImage;
+import net.vulkanmod.vulkshade.optimization.ShaderVariantSystem;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 import org.lwjgl.vulkan.VkCommandBuffer;
-import org.lwjgl.vulkan.VkImageCopy;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -65,9 +65,12 @@ public class PostProcessingPipeline {
             return;
         }
 
+        syncWithConfig();
+
         int effectsRun = 0;
 
         if (bloom != null && bloom.isEnabled()) {
+            boolean ok = false;
             try {
                 transitionForRead(cmdBuffer, sceneColor);
                 transitionForWrite(cmdBuffer, tempBuffer);
@@ -77,35 +80,54 @@ public class PostProcessingPipeline {
                 if (bloomOutput != null) {
                     blitBack(cmdBuffer, bloomOutput, sceneColor);
                 }
+                ok = true;
                 effectsRun++;
             } catch (Exception e) {
-                LOGGER.error("Bloom effect failed, disabling for this frame", e);
+                LOGGER.error("Bloom effect failed, disabling permanently", e);
+                bloom.setEnabled(false);
             }
+            if (!ok) {
+                recoverLayouts(cmdBuffer, sceneColor);
+            }
+            effectBarrier(cmdBuffer);
         }
 
         if (lensFlare != null && lensFlare.isEnabled()) {
+            boolean ok = false;
             try {
                 transitionForRead(cmdBuffer, sceneColor);
                 transitionForWrite(cmdBuffer, tempBuffer);
                 clearImageToBlack(cmdBuffer, tempBuffer);
                 lensFlare.render(cmdBuffer, sceneColor, tempBuffer);
                 blitBack(cmdBuffer, tempBuffer, sceneColor);
+                ok = true;
                 effectsRun++;
             } catch (Exception e) {
-                LOGGER.error("Lens flare effect failed, disabling for this frame", e);
+                LOGGER.error("Lens flare effect failed, disabling permanently", e);
+                lensFlare.setEnabled(false);
             }
+            if (!ok) {
+                recoverLayouts(cmdBuffer, sceneColor);
+            }
+            effectBarrier(cmdBuffer);
         }
 
         if (motionBlur != null && motionBlur.isEnabled()) {
+            boolean ok = false;
             try {
                 transitionForRead(cmdBuffer, sceneColor);
                 transitionForWrite(cmdBuffer, tempBuffer);
                 clearImageToBlack(cmdBuffer, tempBuffer);
                 motionBlur.render(cmdBuffer, sceneColor, tempBuffer);
                 blitBack(cmdBuffer, tempBuffer, sceneColor);
+                ok = true;
                 effectsRun++;
             } catch (Exception e) {
-                LOGGER.error("Motion blur effect failed, disabling for this frame", e);
+                LOGGER.error("Motion blur effect failed, disabling permanently", e);
+                motionBlur.setEnabled(false);
+            }
+            if (!ok) {
+                recoverLayouts(cmdBuffer, sceneColor);
             }
         }
 
@@ -132,9 +154,43 @@ public class PostProcessingPipeline {
     public LensFlareEffect getLensFlare() { return lensFlare; }
     public boolean isInitialized() { return initialized; }
 
+    private void syncWithConfig() {
+        try {
+            ShaderVariantSystem svs = ShaderVariantSystem.getInstance();
+            if (bloom != null) bloom.setEnabled(svs.isFeatureEnabled(ShaderVariantSystem.ShaderFeature.BLOOM));
+            if (lensFlare != null) lensFlare.setEnabled(svs.isFeatureEnabled(ShaderVariantSystem.ShaderFeature.LENS_FLARE));
+            if (motionBlur != null) motionBlur.setEnabled(svs.isFeatureEnabled(ShaderVariantSystem.ShaderFeature.MOTION_BLUR));
+        } catch (Exception e) {
+            // ignore if ShaderVariantSystem not available
+        }
+    }
+
     private void transitionForRead(VkCommandBuffer cmd, VulkanImage img) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             img.transitionImageLayout(stack, cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        }
+    }
+
+    private void recoverLayouts(VkCommandBuffer cmd, VulkanImage sceneColor) {
+        if (sceneColor == null) return;
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            sceneColor.transitionImageLayout(stack, cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            if (tempBuffer != null) {
+                tempBuffer.transitionImageLayout(stack, cmd, VK_IMAGE_LAYOUT_GENERAL);
+            }
+        }
+    }
+
+    private void effectBarrier(VkCommandBuffer cmd) {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            VkMemoryBarrier.Buffer barrier = VkMemoryBarrier.calloc(1, stack);
+            barrier.sType(VK_STRUCTURE_TYPE_MEMORY_BARRIER);
+            barrier.srcAccessMask(VK_ACCESS_SHADER_WRITE_BIT);
+            barrier.dstAccessMask(VK_ACCESS_SHADER_READ_BIT);
+            vkCmdPipelineBarrier(cmd,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                0, barrier, null, null);
         }
     }
 
@@ -186,14 +242,31 @@ public class PostProcessingPipeline {
             src.transitionImageLayout(stack, cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
             dst.transitionImageLayout(stack, cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-            VkImageCopy.Buffer copyBuf = VkImageCopy.calloc(1, stack);
-            copyBuf.srcSubresource().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).mipLevel(0).baseArrayLayer(0).layerCount(1);
-            copyBuf.dstSubresource().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).mipLevel(0).baseArrayLayer(0).layerCount(1);
-            copyBuf.extent().width(Math.min(src.width, dst.width));
-            copyBuf.extent().height(Math.min(src.height, dst.height));
-            copyBuf.extent().depth(1);
-            vkCmdCopyImage(cmd, src.getId(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                dst.getId(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, copyBuf);
+            int w = Math.min(src.width, dst.width);
+            int h = Math.min(src.height, dst.height);
+
+            if (src.format == dst.format) {
+                VkImageCopy.Buffer copyBuf = VkImageCopy.calloc(1, stack);
+                copyBuf.srcSubresource().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).mipLevel(0).baseArrayLayer(0).layerCount(1);
+                copyBuf.dstSubresource().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).mipLevel(0).baseArrayLayer(0).layerCount(1);
+                copyBuf.extent().width(w);
+                copyBuf.extent().height(h);
+                copyBuf.extent().depth(1);
+                vkCmdCopyImage(cmd, src.getId(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    dst.getId(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, copyBuf);
+            } else {
+                VkImageBlit.Buffer blit = VkImageBlit.calloc(1, stack);
+                blit.srcOffsets(0, VkOffset3D.calloc(stack).set(0, 0, 0));
+                blit.srcOffsets(1, VkOffset3D.calloc(stack).set(w, h, 1));
+                blit.srcSubresource()
+                    .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).mipLevel(0).baseArrayLayer(0).layerCount(1);
+                blit.dstOffsets(0, VkOffset3D.calloc(stack).set(0, 0, 0));
+                blit.dstOffsets(1, VkOffset3D.calloc(stack).set(w, h, 1));
+                blit.dstSubresource()
+                    .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).mipLevel(0).baseArrayLayer(0).layerCount(1);
+                vkCmdBlitImage(cmd, src.getId(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    dst.getId(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, blit, VK_FILTER_NEAREST);
+            }
 
             dst.transitionImageLayout(stack, cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             src.transitionImageLayout(stack, cmd, VK_IMAGE_LAYOUT_GENERAL);

@@ -114,7 +114,11 @@ public class DefaultMainPass implements MainPass {
         }
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            this.swapChain.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+            VulkanImage swapchainColor = this.swapChain.getColorAttachment();
+            int currentLayout = swapchainColor.getCurrentLayout();
+            if (currentLayout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+                swapchainColor.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+            }
         }
 
         if (Renderer.getInstance().getGpuProfiler() != null) {

@@ -12,9 +12,9 @@ import static org.lwjgl.vulkan.VK10.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 public class LensFlareEffect {
     private static final Logger LOGGER = LogManager.getLogger("VulkShade-LensFlare");
 
-    private boolean enabled = true;
-    private float intensity = 1.0f;
-    private int ghostCount = 4;
+    private boolean enabled = false;
+    private float intensity = 0.5f;
+    private int ghostCount = 3;
 
     private ComputePipeline lensFlarePipeline;
     private int width;
@@ -34,8 +34,10 @@ public class LensFlareEffect {
         if (lensFlarePipeline == null || !lensFlarePipeline.isValid()) return;
         if (sceneColor == null || outputImage == null) return;
 
+        lensFlarePipeline.beginDefer();
         lensFlarePipeline.bindImageDescriptor(0, sceneColor, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         lensFlarePipeline.bindImageDescriptor(1, outputImage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        lensFlarePipeline.endDefer();
 
         int groupX = (width + 15) / 16;
         int groupY = (height + 15) / 16;
@@ -83,8 +85,8 @@ public class LensFlareEffect {
             layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
             layout(binding = 0) uniform sampler2D sceneColor;
             layout(binding = 1, rgba8) uniform writeonly image2D outputImage;
-            const float flareIntensity = %f;
-            const int ghostCount = %d;
+            const float flareIntensity = __INT__;
+            const int ghostCount = __GHOST__;
             const float ghostDispersal = 0.4;
             const float haloWidth = 0.5;
             void main() {
@@ -116,6 +118,7 @@ public class LensFlareEffect {
                 vec3 result = colorSample + flare * flareIntensity;
                 imageStore(outputImage, coord, vec4(result, 1.0));
             }
-            """.formatted(intensity, ghostCount);
+            """.replace("__INT__", String.format("%.1f", intensity))
+              .replace("__GHOST__", String.valueOf(ghostCount));
     }
 }

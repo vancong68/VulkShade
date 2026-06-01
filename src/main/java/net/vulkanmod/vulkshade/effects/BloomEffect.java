@@ -12,6 +12,10 @@ import org.apache.logging.log4j.Logger;
 
 import java.nio.ByteBuffer;
 
+import static org.lwjgl.vulkan.VK10.*;
+
+import org.lwjgl.vulkan.VkMemoryBarrier;
+
 import static org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 import static org.lwjgl.vulkan.VK10.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 import static org.lwjgl.vulkan.VK10.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
@@ -25,9 +29,9 @@ import static org.lwjgl.vulkan.VK10.VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 public class BloomEffect {
     private static final Logger LOGGER = LogManager.getLogger("VulkShade-Bloom");
 
-    private boolean enabled = true;
-    private float intensity = 1.5f;
-    private float threshold = 0.3f;
+    private boolean enabled = false;
+    private float intensity = 0.5f;
+    private float threshold = 0.5f;
 
     private VulkanImage blurScratch;
     private int width;
@@ -58,29 +62,60 @@ public class BloomEffect {
         if (extractBrightPipeline == null || !extractBrightPipeline.isValid()) return;
         if (sceneColor == null || outputImage == null || blurScratch == null) return;
 
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            blurScratch.transitionImageLayout(stack, cmdBuffer, VK_IMAGE_LAYOUT_GENERAL);
+        }
+
         int groupX = (width + 15) / 16;
         int groupY = (height + 15) / 16;
 
+        extractBrightPipeline.beginDefer();
         extractBrightPipeline.bindImageDescriptor(0, sceneColor, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         extractBrightPipeline.bindImageDescriptor(1, outputImage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         bindUBO(extractBrightPipeline);
+        extractBrightPipeline.endDefer();
         extractBrightPipeline.dispatchWithDescriptors(cmdBuffer, groupX, groupY, 1);
+        computeBarrier(cmdBuffer);
 
         if (blurHPipeline == null || !blurHPipeline.isValid()) return;
+        blurHPipeline.beginDefer();
         blurHPipeline.bindImageDescriptor(0, outputImage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         blurHPipeline.bindImageDescriptor(1, blurScratch, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        blurHPipeline.endDefer();
         blurHPipeline.dispatchWithDescriptors(cmdBuffer, groupX, groupY, 1);
+        computeBarrier(cmdBuffer);
 
         if (blurVPipeline == null || !blurVPipeline.isValid()) return;
+        blurVPipeline.beginDefer();
         blurVPipeline.bindImageDescriptor(0, blurScratch, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         blurVPipeline.bindImageDescriptor(1, outputImage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        blurVPipeline.endDefer();
         blurVPipeline.dispatchWithDescriptors(cmdBuffer, groupX, groupY, 1);
+        computeBarrier(cmdBuffer);
 
         if (compositePipeline == null || !compositePipeline.isValid()) return;
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            outputImage.transitionImageLayout(stack, cmdBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        }
+        compositePipeline.beginDefer();
         compositePipeline.bindImageDescriptor(0, sceneColor, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         compositePipeline.bindImageDescriptor(1, outputImage, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         compositePipeline.bindImageDescriptor(2, blurScratch, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        compositePipeline.endDefer();
         compositePipeline.dispatchWithDescriptors(cmdBuffer, groupX, groupY, 1);
+    }
+
+    private void computeBarrier(VkCommandBuffer cmdBuffer) {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            VkMemoryBarrier.Buffer barrier = VkMemoryBarrier.calloc(1, stack);
+            barrier.sType(VK_STRUCTURE_TYPE_MEMORY_BARRIER);
+            barrier.srcAccessMask(VK_ACCESS_SHADER_WRITE_BIT);
+            barrier.dstAccessMask(VK_ACCESS_SHADER_READ_BIT);
+            vkCmdPipelineBarrier(cmdBuffer,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                0, barrier, null, null);
+        }
     }
 
     public VulkanImage getOutputImage() {
