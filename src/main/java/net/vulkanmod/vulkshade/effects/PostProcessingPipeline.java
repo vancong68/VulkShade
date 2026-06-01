@@ -32,11 +32,9 @@ public class PostProcessingPipeline {
         this.width = fbWidth;
         this.height = fbHeight;
 
-        int format = sceneColorRef != null ? sceneColorRef.format : VK_FORMAT_R16G16B16A16_SFLOAT;
-
         tempBuffer = VulkanImage.builder(fbWidth, fbHeight)
             .setName("PostProcess Temp")
-            .setFormat(format)
+            .setFormat(VK_FORMAT_R8G8B8A8_UNORM)
             .setUsage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
                 | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
             .setLinearFiltering(true)
@@ -71,11 +69,14 @@ public class PostProcessingPipeline {
 
         if (bloom != null && bloom.isEnabled()) {
             try {
-                transitionForStorage(cmdBuffer, sceneColor);
+                transitionForRead(cmdBuffer, sceneColor);
                 transitionForWrite(cmdBuffer, tempBuffer);
                 clearImageToBlack(cmdBuffer, tempBuffer);
                 bloom.render(cmdBuffer, sceneColor, tempBuffer);
-                blitBack(cmdBuffer, tempBuffer, sceneColor);
+                VulkanImage bloomOutput = bloom.getOutputImage();
+                if (bloomOutput != null) {
+                    blitBack(cmdBuffer, bloomOutput, sceneColor);
+                }
                 effectsRun++;
             } catch (Exception e) {
                 LOGGER.error("Bloom effect failed, disabling for this frame", e);
@@ -134,12 +135,6 @@ public class PostProcessingPipeline {
     private void transitionForRead(VkCommandBuffer cmd, VulkanImage img) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             img.transitionImageLayout(stack, cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        }
-    }
-
-    private void transitionForStorage(VkCommandBuffer cmd, VulkanImage img) {
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            img.transitionImageLayout(stack, cmd, VK_IMAGE_LAYOUT_GENERAL);
         }
     }
 

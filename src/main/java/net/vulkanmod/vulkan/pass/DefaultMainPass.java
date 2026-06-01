@@ -6,12 +6,12 @@ import com.mojang.blaze3d.textures.GpuTextureView;
 import net.minecraft.client.Minecraft;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.render.PipelineManager;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import net.vulkanmod.render.engine.VkGpuDevice;
 import net.vulkanmod.render.engine.VkGpuTexture;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.VRenderSystem;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import net.vulkanmod.vulkan.framebuffer.Framebuffer;
 import net.vulkanmod.vulkan.framebuffer.RenderPass;
 import net.vulkanmod.vulkan.framebuffer.SwapChain;
@@ -103,6 +103,14 @@ public class DefaultMainPass implements MainPass {
         if (isFsrEnabled() && !this.renderingToSwapChain) {
             resolveForGui(commandBuffer);
             Renderer.getInstance().endRenderPass(commandBuffer);
+        }
+
+        if (Renderer.postProcessCallback != null) {
+            try {
+                Renderer.postProcessCallback.run();
+            } catch (Exception e) {
+                LOGGER.error("Post-processing callback failed", e);
+            }
         }
 
         try (MemoryStack stack = MemoryStack.stackPush()) {

@@ -73,6 +73,10 @@ public class PerformanceScaler {
         this.currentRenderDistance = mc.options.renderDistance().get();
         this.renderDistanceTarget = this.currentRenderDistance;
         this.renderDistanceMax = Math.max(this.renderDistanceMax, this.currentRenderDistance);
+        if (Initializer.CONFIG.voxyLODEnabled) {
+            this.renderDistanceMin = Math.max(16, this.renderDistanceMin);
+            this.renderDistanceTarget = Math.max(16, this.renderDistanceTarget);
+        }
     }
 
     public void beginFrame(long currentTime) {

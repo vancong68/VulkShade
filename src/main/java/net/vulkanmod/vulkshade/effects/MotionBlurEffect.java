@@ -13,7 +13,7 @@ public class MotionBlurEffect {
     private static final Logger LOGGER = LogManager.getLogger("VulkShade-MotionBlur");
 
     private boolean enabled = true;
-    private float intensity = 0.5f;
+    private float intensity = 3.0f;
     private int sampleCount = 8;
 
     private ComputePipeline motionBlurPipeline;
@@ -82,7 +82,7 @@ public class MotionBlurEffect {
             #version 450
             layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
             layout(binding = 0) uniform sampler2D sceneColor;
-            layout(binding = 1, rgba16f) uniform writeonly image2D outputImage;
+            layout(binding = 1, rgba8) uniform writeonly image2D outputImage;
             const int samples = %d;
             const float blurIntensity = %f;
             void main() {

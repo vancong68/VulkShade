@@ -423,7 +423,7 @@ public class VoxyLODManager {
             float dz = tile.getTileZ() * tileSize * superTileSize + tileSize * superTileSize / 2.0f - pz;
             float dist = (float) Math.sqrt(dx * dx + dz * dz);
             float mcRenderDist = mc.options.renderDistance().get() * 16.0f;
-            if (dist < mcRenderDist * 0.8f) continue;
+            if (dist < mcRenderDist) continue;
 
             tile.vbo.bind(lodPipeline);
             tile.vbo.draw();

@@ -13,7 +13,7 @@ public class LensFlareEffect {
     private static final Logger LOGGER = LogManager.getLogger("VulkShade-LensFlare");
 
     private boolean enabled = true;
-    private float intensity = 0.3f;
+    private float intensity = 1.0f;
     private int ghostCount = 4;
 
     private ComputePipeline lensFlarePipeline;
@@ -82,7 +82,7 @@ public class LensFlareEffect {
             #version 450
             layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
             layout(binding = 0) uniform sampler2D sceneColor;
-            layout(binding = 1, rgba16f) uniform writeonly image2D outputImage;
+            layout(binding = 1, rgba8) uniform writeonly image2D outputImage;
             const float flareIntensity = %f;
             const int ghostCount = %d;
             const float ghostDispersal = 0.4;
@@ -94,7 +94,7 @@ public class LensFlareEffect {
                 vec2 texelSize = 1.0 / vec2(size);
                 vec2 uv = (vec2(coord) + 0.5) * texelSize;
                 vec3 colorSample = texture(sceneColor, uv).rgb;
-                float luminance = max(dot(colorSample, vec3(0.2126, 0.7152, 0.0722)) - 0.8, 0.0);
+                float luminance = max(dot(colorSample, vec3(0.2126, 0.7152, 0.0722)) - 0.3, 0.0);
                 vec2 flareCenter = vec2(0.5, 0.5);
                 vec2 dir = uv - flareCenter;
                 vec3 flare = vec3(0.0);

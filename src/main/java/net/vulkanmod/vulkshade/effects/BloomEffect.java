@@ -16,16 +16,20 @@ import static org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 import static org.lwjgl.vulkan.VK10.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 import static org.lwjgl.vulkan.VK10.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 import static org.lwjgl.vulkan.VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+import static org.lwjgl.vulkan.VK10.VK_FORMAT_R8G8B8A8_UNORM;
+import static org.lwjgl.vulkan.VK10.VK_IMAGE_USAGE_SAMPLED_BIT;
+import static org.lwjgl.vulkan.VK10.VK_IMAGE_USAGE_STORAGE_BIT;
+import static org.lwjgl.vulkan.VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+import static org.lwjgl.vulkan.VK10.VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
 public class BloomEffect {
     private static final Logger LOGGER = LogManager.getLogger("VulkShade-Bloom");
 
     private boolean enabled = true;
-    private float intensity = 0.7f;
-    private float threshold = 1.0f;
-    private int mipLevels = 5;
+    private float intensity = 1.5f;
+    private float threshold = 0.3f;
 
-    private VulkanImage[] mipTextures;
+    private VulkanImage blurScratch;
     private int width;
     private int height;
 
@@ -44,7 +48,7 @@ public class BloomEffect {
         this.width = width;
         this.height = height;
         createUBO();
-        createMipChain();
+        createBlurScratch();
         createPipelines();
     }
 
@@ -52,21 +56,44 @@ public class BloomEffect {
                        VulkanImage outputImage) {
         if (!enabled) return;
         if (extractBrightPipeline == null || !extractBrightPipeline.isValid()) return;
-        if (sceneColor == null || outputImage == null) return;
-        extractBrightPipeline.bindImageDescriptor(0, sceneColor, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        if (sceneColor == null || outputImage == null || blurScratch == null) return;
+
+        int groupX = (width + 15) / 16;
+        int groupY = (height + 15) / 16;
+
+        extractBrightPipeline.bindImageDescriptor(0, sceneColor, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         extractBrightPipeline.bindImageDescriptor(1, outputImage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         bindUBO(extractBrightPipeline);
-        extractBrightPipeline.dispatchWithDescriptors(cmdBuffer,
-            (width + 15) / 16, (height + 15) / 16, 1);
+        extractBrightPipeline.dispatchWithDescriptors(cmdBuffer, groupX, groupY, 1);
+
+        if (blurHPipeline == null || !blurHPipeline.isValid()) return;
+        blurHPipeline.bindImageDescriptor(0, outputImage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        blurHPipeline.bindImageDescriptor(1, blurScratch, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        blurHPipeline.dispatchWithDescriptors(cmdBuffer, groupX, groupY, 1);
+
+        if (blurVPipeline == null || !blurVPipeline.isValid()) return;
+        blurVPipeline.bindImageDescriptor(0, blurScratch, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        blurVPipeline.bindImageDescriptor(1, outputImage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        blurVPipeline.dispatchWithDescriptors(cmdBuffer, groupX, groupY, 1);
+
+        if (compositePipeline == null || !compositePipeline.isValid()) return;
+        compositePipeline.bindImageDescriptor(0, sceneColor, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        compositePipeline.bindImageDescriptor(1, outputImage, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        compositePipeline.bindImageDescriptor(2, blurScratch, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        compositePipeline.dispatchWithDescriptors(cmdBuffer, groupX, groupY, 1);
+    }
+
+    public VulkanImage getOutputImage() {
+        return blurScratch;
     }
 
     public void resize(int newWidth, int newHeight) {
-        cleanupMipChain();
+        cleanupScratch();
         initialize(newWidth, newHeight);
     }
 
     public void cleanup() {
-        cleanupMipChain();
+        cleanupScratch();
         if (extractBrightPipeline != null) extractBrightPipeline.destroy();
         if (blurHPipeline != null) blurHPipeline.destroy();
         if (blurVPipeline != null) blurVPipeline.destroy();
@@ -95,21 +122,21 @@ public class BloomEffect {
         pipeline.bindUBO(2, bloomUBO);
     }
 
-    private void createMipChain() {
-        mipTextures = new VulkanImage[mipLevels];
-        int mipW = Math.max(1, width / 2);
-        int mipH = Math.max(1, height / 2);
-        for (int i = 0; i < mipLevels; i++) {
-            mipTextures[i] = null;
-            mipW = Math.max(1, mipW / 2);
-            mipH = Math.max(1, mipH / 2);
-        }
+    private void createBlurScratch() {
+        blurScratch = VulkanImage.builder(width, height)
+            .setName("Bloom Blur Scratch")
+            .setFormat(VK_FORMAT_R8G8B8A8_UNORM)
+            .setUsage(VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
+                | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+            .setLinearFiltering(true)
+            .setClamp(true)
+            .createVulkanImage();
     }
 
     private void createPipelines() {
         extractBrightPipeline = new ComputePipeline("bloom_extract");
         extractBrightPipeline
-            .addDescriptorBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+            .addDescriptorBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
             .addDescriptorBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
             .addDescriptorBinding(2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
         extractBrightPipeline.compileFromSource(generateExtractSource());
@@ -144,14 +171,25 @@ public class BloomEffect {
         if (blurVPipeline.isValid()) {
             blurVPipeline.allocateDescriptorSet();
         }
+
+        compositePipeline = new ComputePipeline("bloom_composite");
+        compositePipeline
+            .addDescriptorBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+            .addDescriptorBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+            .addDescriptorBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        compositePipeline.compileFromSource(generateCompositeSource());
+        compositePipeline.create();
+        if (compositePipeline.isValid()) {
+            compositePipeline.allocateDescriptorSet();
+        }
     }
 
     private String generateExtractSource() {
         return """
             #version 450
             layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
-            layout(binding = 0, rgba16f) uniform readonly image2D srcImage;
-            layout(binding = 1, rgba16f) uniform writeonly image2D dstImage;
+            layout(binding = 0) uniform sampler2D srcImage;
+            layout(binding = 1, rgba8) uniform writeonly image2D dstImage;
             layout(binding = 2, std140) uniform BloomData {
                 float intensity;
                 float threshold;
@@ -159,9 +197,9 @@ public class BloomEffect {
             vec3 luminanceWeight = vec3(0.2126, 0.7152, 0.0722);
             void main() {
                 ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-                ivec2 size = imageSize(srcImage);
+                ivec2 size = textureSize(srcImage, 0);
                 if (coord.x >= size.x || coord.y >= size.y) return;
-                vec3 color = imageLoad(srcImage, coord).rgb;
+                vec3 color = texelFetch(srcImage, coord, 0).rgb;
                 float luminance = dot(color, luminanceWeight);
                 float amount = max(luminance - threshold, 0.0) / max(1.0 - threshold, 0.001);
                 vec3 bright = color * amount * intensity;
@@ -174,8 +212,8 @@ public class BloomEffect {
         return """
             #version 450
             layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
-            layout(binding = 0, rgba16f) uniform readonly image2D srcImage;
-            layout(binding = 1, rgba16f) uniform writeonly image2D dstImage;
+            layout(binding = 0, rgba8) uniform readonly image2D srcImage;
+            layout(binding = 1, rgba8) uniform writeonly image2D dstImage;
             const float weights[5] = float[](0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216);
             void main() {
                 ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
@@ -196,8 +234,8 @@ public class BloomEffect {
         return """
             #version 450
             layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
-            layout(binding = 0, rgba16f) uniform readonly image2D srcImage;
-            layout(binding = 1, rgba16f) uniform writeonly image2D dstImage;
+            layout(binding = 0, rgba8) uniform readonly image2D srcImage;
+            layout(binding = 1, rgba8) uniform writeonly image2D dstImage;
             const float weights[5] = float[](0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216);
             void main() {
                 ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
@@ -214,12 +252,26 @@ public class BloomEffect {
             """;
     }
 
-    private void cleanupMipChain() {
-        if (mipTextures != null) {
-            for (VulkanImage img : mipTextures) {
-                if (img != null) img.free();
+    private String generateCompositeSource() {
+        return """
+            #version 450
+            layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+            layout(binding = 0) uniform sampler2D originalScene;
+            layout(binding = 1) uniform sampler2D blurredBright;
+            layout(binding = 2, rgba8) uniform writeonly image2D outputImage;
+            void main() {
+                ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+                ivec2 size = imageSize(outputImage);
+                if (coord.x >= size.x || coord.y >= size.y) return;
+                vec3 original = texelFetch(originalScene, coord, 0).rgb;
+                vec3 bright = texelFetch(blurredBright, coord, 0).rgb;
+                vec3 result = original + bright;
+                imageStore(outputImage, coord, vec4(result, 1.0));
             }
-            mipTextures = null;
-        }
+            """;
+    }
+
+    private void cleanupScratch() {
+        if (blurScratch != null) { blurScratch.free(); blurScratch = null; }
     }
 }
