@@ -7,7 +7,9 @@ import net.vulkanmod.vulkan.texture.VulkanImage;
 import net.vulkanmod.vulkshade.shader.ComputePipeline;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkCommandBuffer;
+import org.lwjgl.vulkan.VkImageBlit;
 import org.lwjgl.vulkan.VkImageMemoryBarrier;
+import org.lwjgl.vulkan.VkOffset3D;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -89,15 +91,33 @@ public class PBRDeferredLighting {
 
             deferredLightingPipeline.dispatchWithDescriptors(cmdBuffer, groupX, groupY, 1);
 
-            lightingOutput.transitionImageLayout(stack, cmdBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            lightingOutput.transitionImageLayout(stack, cmdBuffer, VK_IMAGE_LAYOUT_GENERAL);
 
             compositePipeline.beginDefer();
             compositePipeline.bindImageDescriptor(0, sceneColor, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
             compositePipeline.bindImageDescriptor(1, lightingOutput, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-            compositePipeline.bindImageDescriptor(2, sceneColor, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+            compositePipeline.bindImageDescriptor(2, lightingOutput, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
             compositePipeline.endDefer();
 
             compositePipeline.dispatchWithDescriptors(cmdBuffer, groupX, groupY, 1);
+
+            lightingOutput.transitionImageLayout(stack, cmdBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+            sceneColor.transitionImageLayout(stack, cmdBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+            int blitW = Math.min(lightingOutput.width, sceneColor.width);
+            int blitH = Math.min(lightingOutput.height, sceneColor.height);
+            VkImageBlit.Buffer blitBuf = VkImageBlit.calloc(1, stack);
+            blitBuf.srcOffsets(0, VkOffset3D.calloc(stack).set(0, 0, 0));
+            blitBuf.srcOffsets(1, VkOffset3D.calloc(stack).set(blitW, blitH, 1));
+            blitBuf.srcSubresource().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).mipLevel(0).baseArrayLayer(0).layerCount(1);
+            blitBuf.dstOffsets(0, VkOffset3D.calloc(stack).set(0, 0, 0));
+            blitBuf.dstOffsets(1, VkOffset3D.calloc(stack).set(blitW, blitH, 1));
+            blitBuf.dstSubresource().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).mipLevel(0).baseArrayLayer(0).layerCount(1);
+            vkCmdBlitImage(cmdBuffer, lightingOutput.getId(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                sceneColor.getId(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, blitBuf, VK_FILTER_NEAREST);
+
+            lightingOutput.transitionImageLayout(stack, cmdBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            sceneColor.transitionImageLayout(stack, cmdBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }
     }
 
@@ -393,7 +413,7 @@ public class PBRDeferredLighting {
             layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
             layout(binding = 0) uniform sampler2D sceneColor;
             layout(binding = 1) uniform sampler2D lightingBuffer;
-            layout(binding = 2, rgba8) uniform writeonly image2D outputImage;
+            layout(binding = 2, rgba16f) uniform writeonly image2D outputImage;
 
             void main() {
                 ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
