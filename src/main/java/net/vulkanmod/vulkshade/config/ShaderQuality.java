@@ -21,7 +21,6 @@ public enum ShaderQuality {
         vcfg.setWaterQuality(WaterShader.WaterQuality.LOW);
         vcfg.setShadowQuality(ShadowMapEffect.ShadowQuality.OFF);
         vcfg.setFogQuality(FogEffect.FogQuality.LOW);
-        vcfg.setPBRQuality(PBRDeferredLighting.PBRQuality.LOW);
         vcfg.setSSAOSampleCount(8);
         vcfg.setBloomIntensity(0.0f);
         vcfg.setShadowResolution(0);
@@ -39,7 +38,6 @@ public enum ShaderQuality {
         vcfg.setWaterQuality(WaterShader.WaterQuality.MEDIUM);
         vcfg.setShadowQuality(ShadowMapEffect.ShadowQuality.MEDIUM);
         vcfg.setFogQuality(FogEffect.FogQuality.HIGH);
-        vcfg.setPBRQuality(PBRDeferredLighting.PBRQuality.MEDIUM);
         vcfg.setSSAOSampleCount(32);
         vcfg.setBloomIntensity(0.5f);
         vcfg.setShadowResolution(1024);
@@ -57,7 +55,6 @@ public enum ShaderQuality {
         vcfg.setWaterQuality(WaterShader.WaterQuality.HIGH);
         vcfg.setShadowQuality(ShadowMapEffect.ShadowQuality.HIGH);
         vcfg.setFogQuality(FogEffect.FogQuality.HIGH);
-        vcfg.setPBRQuality(PBRDeferredLighting.PBRQuality.HIGH);
         vcfg.setSSAOSampleCount(64);
         vcfg.setBloomIntensity(0.8f);
         vcfg.setShadowResolution(2048);

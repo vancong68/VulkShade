@@ -3,13 +3,16 @@ package net.vulkanmod.vulkshade.config;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.config.Config;
 import net.vulkanmod.vulkan.Vulkan;
-import net.vulkanmod.vulkshade.effects.*;
+import net.vulkanmod.vulkshade.effects.BloomEffect;
+import net.vulkanmod.vulkshade.effects.FogEffect;
+import net.vulkanmod.vulkshade.effects.MotionBlurEffect;
+import net.vulkanmod.vulkshade.effects.ShadowMapEffect;
+import net.vulkanmod.vulkshade.effects.WaterShader;
 import net.vulkanmod.vulkshade.optimization.ChunkBatchManager;
 import net.vulkanmod.vulkshade.optimization.CullingSystemUpgrade;
 import net.vulkanmod.vulkshade.optimization.PerformanceScaler;
 import net.vulkanmod.vulkshade.optimization.ShaderVariantSystem;
 import net.vulkanmod.vulkshade.render.VoxyLODManager;
-import net.vulkanmod.vulkshade.shader.ShaderManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -28,7 +31,6 @@ public class VulkShadeConfig {
     private FogEffect.FogQuality fogQuality = FogEffect.FogQuality.HIGH;
     private WaterShader.WaterQuality waterQuality = WaterShader.WaterQuality.MEDIUM;
     private ShadowMapEffect.ShadowQuality shadowQuality = ShadowMapEffect.ShadowQuality.MEDIUM;
-    private PBRDeferredLighting.PBRQuality pbrQuality = PBRDeferredLighting.PBRQuality.MEDIUM;
 
     // Performance controls
     private boolean chunkMergingEnabled = true;
@@ -83,7 +85,6 @@ public class VulkShadeConfig {
                 waterQuality = WaterShader.WaterQuality.ULTRA;
                 shadowQuality = ShadowMapEffect.ShadowQuality.ULTRA;
                 fogQuality = FogEffect.FogQuality.HIGH;
-                pbrQuality = PBRDeferredLighting.PBRQuality.HIGH;
                 ssaoSampleCount = 64;
                 bloomIntensity = 1.0f;
                 shadowResolution = 4096;
@@ -94,7 +95,6 @@ public class VulkShadeConfig {
                 waterQuality = WaterShader.WaterQuality.HIGH;
                 shadowQuality = ShadowMapEffect.ShadowQuality.HIGH;
                 fogQuality = FogEffect.FogQuality.HIGH;
-                pbrQuality = PBRDeferredLighting.PBRQuality.MEDIUM;
                 ssaoSampleCount = 48;
                 bloomIntensity = 0.7f;
                 shadowResolution = 2048;
@@ -105,7 +105,6 @@ public class VulkShadeConfig {
                 waterQuality = WaterShader.WaterQuality.MEDIUM;
                 shadowQuality = ShadowMapEffect.ShadowQuality.MEDIUM;
                 fogQuality = FogEffect.FogQuality.HIGH;
-                pbrQuality = PBRDeferredLighting.PBRQuality.LOW;
                 ssaoSampleCount = 32;
                 bloomIntensity = 0.5f;
                 shadowResolution = 1024;
@@ -116,7 +115,6 @@ public class VulkShadeConfig {
                 waterQuality = WaterShader.WaterQuality.LOW;
                 shadowQuality = ShadowMapEffect.ShadowQuality.LOW;
                 fogQuality = FogEffect.FogQuality.LOW;
-                pbrQuality = PBRDeferredLighting.PBRQuality.LOW;
                 ssaoSampleCount = 16;
                 bloomIntensity = 0.3f;
                 shadowResolution = 512;
@@ -231,12 +229,6 @@ public class VulkShadeConfig {
         this.shadowQuality = quality;
         setEnhancedShadows(quality != ShadowMapEffect.ShadowQuality.OFF);
         LOGGER.info("Shadow quality set to: {}", quality);
-    }
-    public PBRDeferredLighting.PBRQuality getPBRQuality() { return pbrQuality; }
-    public void setPBRQuality(PBRDeferredLighting.PBRQuality quality) {
-        this.pbrQuality = quality;
-        setPBRenabled(quality != PBRDeferredLighting.PBRQuality.LOW);
-        LOGGER.info("PBR quality set to: {}", quality);
     }
 
     // ========== Performance Controls ==========

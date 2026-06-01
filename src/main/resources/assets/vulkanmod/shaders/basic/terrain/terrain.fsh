@@ -33,6 +33,11 @@ layout(binding = 1) uniform UBO {
     int terrainLightingQuality;
     int blockEmissiveTexturesEnabled;
     int pbrEnabled;
+    float pbrFallbackRoughness;
+    float pbrFallbackMetallic;
+    float pbrFallbackF0;
+    float pbrFallbackAO;
+    float pbrFallbackEmissive;
 };
 
 #define MAKEUP_TERRAIN_SHADOW_QUALITY terrainShadowQuality
@@ -78,53 +83,103 @@ void main() {
         vec4 specSample = texture(Sampler7, uv);
         vec4 normSample = texture(Sampler8, uv);
 
-        LabPBRSpecular spec = pbr_decode_specular(specSample);
-        LabPBRNormal pbrNorm = pbr_decode_normal(normSample);
-
         vec3 geoNormal = makeup_terrain_normal(worldPos);
-        vec3 worldNormal = pbr_apply_normal_map(geoNormal, pbrNorm.normal, worldPos, uv);
-        worldNormal = faceforward(worldNormal, worldPos, worldNormal);
-
         vec3 V = normalize(-worldPos);
         vec3 L = normalize(shadowLightPosition);
         vec3 sunRadiance = makeup_direct_light_color() * dayNightMix * (1.0 - rainStrength * 0.75);
 
         vec3 F0;
-        if (spec.metalFactor > 0.5) {
-            F0 = pbr_f0_for_metal(baseColor, spec.metalID);
+        float roughness;
+        float metallic;
+        float ao;
+        vec3 emissiveColor;
+        float sss;
+
+        bool hasPBR = specSample.a > 0.001;
+
+        if (hasPBR) {
+            LabPBRSpecular spec = pbr_decode_specular(specSample);
+            LabPBRNormal pbrNorm = pbr_decode_normal(normSample);
+
+            vec3 worldNormal = pbr_apply_normal_map(geoNormal, pbrNorm.normal, worldPos, uv);
+            worldNormal = faceforward(worldNormal, worldPos, worldNormal);
+
+            if (spec.metalFactor > 0.5) {
+                F0 = pbr_f0_for_metal(baseColor, spec.metalID);
+            } else {
+                F0 = pbr_f0_for_dielectric(spec.f0);
+            }
+
+            roughness = spec.roughness;
+            metallic = spec.metalFactor;
+            ao = pbrNorm.ao;
+            sss = spec.sss;
+            emissiveColor = pbr_emissive_contribution(spec.emissive, baseColor);
+
+            vec2 illum = makeup_adjust_light_levels(rawLightLevels);
+            float visibleSky = illum.y;
+            float blockLight = illum.x;
+
+            float rawDirectLight = makeup_raw_direct_light(worldNormal);
+            float shadowValue = makeup_terrain_shadow_value(worldPos, worldNormal);
+
+            vec3 directLighting = pbr_cook_torrance(
+                worldNormal, V, L, sunRadiance * shadowValue,
+                F0, roughness, baseColor, metallic
+            );
+
+            vec3 omniLight = makeup_omni_light(visibleSky, rawDirectLight, makeup_direct_light_color());
+            vec3 candleColor = makeup_candle_color(blockLight);
+
+            vec3 ambient = omniLight + candleColor;
+            vec3 diffuse = baseColor * ambient * ao;
+
+            vec3 sssLight = pbr_sss_contribution(worldNormal, V, L, sunRadiance * shadowValue,
+                                                  baseColor, sss, roughness);
+
+            litColor = diffuse + directLighting + sssLight;
+
+            if (blockEmissiveTexturesEnabled != 0) {
+                litColor += texture(Sampler6, uv).rgb;
+            }
+            litColor += emissiveColor;
+
         } else {
-            F0 = pbr_f0_for_dielectric(spec.f0);
+            vec3 worldNormal = geoNormal;
+            worldNormal = faceforward(worldNormal, worldPos, worldNormal);
+
+            F0 = pbr_f0_for_dielectric(pbrFallbackF0);
+            roughness = clamp(pbrFallbackRoughness, 0.001, 0.999);
+            metallic = pbrFallbackMetallic;
+            ao = pbrFallbackAO;
+            sss = 0.0;
+            emissiveColor = pbr_emissive_contribution(pbrFallbackEmissive, baseColor);
+
+            vec2 illum = makeup_adjust_light_levels(rawLightLevels);
+            float visibleSky = illum.y;
+            float blockLight = illum.x;
+
+            float rawDirectLight = makeup_raw_direct_light(worldNormal);
+            float shadowValue = makeup_terrain_shadow_value(worldPos, worldNormal);
+
+            vec3 directLighting = pbr_cook_torrance(
+                worldNormal, V, L, sunRadiance * shadowValue,
+                F0, roughness, baseColor, metallic
+            );
+
+            vec3 omniLight = makeup_omni_light(visibleSky, rawDirectLight, makeup_direct_light_color());
+            vec3 candleColor = makeup_candle_color(blockLight);
+
+            vec3 ambient = omniLight + candleColor;
+            vec3 diffuse = baseColor * ambient * ao;
+
+            litColor = diffuse + directLighting;
+
+            if (blockEmissiveTexturesEnabled != 0) {
+                litColor += texture(Sampler6, uv).rgb;
+            }
+            litColor += emissiveColor;
         }
-
-        vec2 illum = makeup_adjust_light_levels(rawLightLevels);
-        float visibleSky = illum.y;
-        float blockLight = illum.x;
-
-        float rawDirectLight = makeup_raw_direct_light(worldNormal);
-        float NdotL_sun = clamp(rawDirectLight, 0.0, 1.0) * visibleSky;
-
-        float shadowValue = makeup_terrain_shadow_value(worldPos, worldNormal);
-
-        vec3 directLighting = pbr_cook_torrance(
-            worldNormal, V, L, sunRadiance * shadowValue,
-            F0, spec.roughness, baseColor, spec.metalFactor
-        );
-
-        vec3 omniLight = makeup_omni_light(visibleSky, rawDirectLight, makeup_direct_light_color());
-        vec3 candleColor = makeup_candle_color(blockLight);
-
-        vec3 ambient = omniLight + candleColor;
-        vec3 diffuse = baseColor * ambient * pbrNorm.ao;
-
-        vec3 sss = pbr_sss_contribution(worldNormal, V, L, sunRadiance * shadowValue,
-                                         baseColor, spec.sss, spec.roughness);
-
-        litColor = diffuse + directLighting + sss;
-
-        if (blockEmissiveTexturesEnabled != 0) {
-            litColor += texture(Sampler6, uv).rgb;
-        }
-        litColor += pbr_emissive_contribution(spec.emissive, baseColor);
 
     } else if (terrainLightingQuality >= 2) {
         litColor = color.rgb;

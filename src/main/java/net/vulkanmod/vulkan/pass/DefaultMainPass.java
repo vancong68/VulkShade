@@ -80,14 +80,14 @@ public class DefaultMainPass implements MainPass {
 
         recreateRenderPasses();
         createAttachmentTextures();
-        ensureFsrResources();
+        ensurePostProcessResources();
     }
 
     @Override
     public void begin(VkCommandBuffer commandBuffer, MemoryStack stack) {
-        ensureFsrResources();
+        ensurePostProcessResources();
 
-        this.renderingToSwapChain = !isFsrEnabled();
+        this.renderingToSwapChain = !isPostProcessEnabled();
         this.fsrResolvedThisFrame = false;
 
         Renderer renderer = Renderer.getInstance();
@@ -100,7 +100,7 @@ public class DefaultMainPass implements MainPass {
 
         Renderer.getInstance().endRenderPass(commandBuffer);
 
-        if (isFsrEnabled() && !this.renderingToSwapChain) {
+        if (!this.renderingToSwapChain) {
             resolveForGui(commandBuffer);
             Renderer.getInstance().endRenderPass(commandBuffer);
         }
@@ -146,7 +146,7 @@ public class DefaultMainPass implements MainPass {
 
         recreateRenderPasses();
         createAttachmentTextures();
-        ensureFsrResources();
+        ensurePostProcessResources();
     }
 
     @Override
@@ -236,12 +236,18 @@ public class DefaultMainPass implements MainPass {
 
     @Override
     public boolean isFsrEnabled() {
-        return shouldRenderWorldWithFsr() && this.sceneFramebuffer != null && this.fsrUpscaleFramebuffer != null;
+        return shouldUpscale() && this.sceneFramebuffer != null && this.fsrUpscaleFramebuffer != null;
+    }
+
+    private boolean isPostProcessEnabled() {
+        return (shouldUpscale() || shouldSharpen())
+                && this.swapChain.getWidth() > 0
+                && this.swapChain.getHeight() > 0;
     }
 
     @Override
     public void resolveForGui(VkCommandBuffer commandBuffer) {
-        if (!isFsrEnabled() || this.renderingToSwapChain) {
+        if (this.sceneFramebuffer == null) {
             return;
         }
 
@@ -250,46 +256,70 @@ public class DefaultMainPass implements MainPass {
 
         renderer.endRenderPass(commandBuffer);
 
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            this.sceneFramebuffer.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        GpuTextureView rcasInputView;
+        boolean doUpscale = shouldUpscale() && this.fsrUpscaleFramebuffer != null;
+
+        if (doUpscale) {
+            try (MemoryStack stack = MemoryStack.stackPush()) {
+                this.sceneFramebuffer.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            }
+
+            if (gpuProfiler != null) {
+                gpuProfiler.beginStage(GpuFrameProfiler.Stage.FSR_EASU);
+            }
+            renderer.beginRenderPass(this.fsrUpscaleRenderPass, this.fsrUpscaleFramebuffer);
+            drawFullscreenPass(PipelineManager.getFsrEasuPipeline(), this.sceneColorTextureView);
+            renderer.endRenderPass(commandBuffer);
+            if (gpuProfiler != null) {
+                gpuProfiler.endStage(GpuFrameProfiler.Stage.FSR_EASU);
+            }
+
+            rcasInputView = this.fsrUpscaleColorTextureView;
+        } else {
+            try (MemoryStack stack = MemoryStack.stackPush()) {
+                this.sceneFramebuffer.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            }
+
+            rcasInputView = this.sceneColorTextureView;
         }
 
-        if (gpuProfiler != null) {
-            gpuProfiler.beginStage(GpuFrameProfiler.Stage.FSR_EASU);
-        }
-        renderer.beginRenderPass(this.fsrUpscaleRenderPass, this.fsrUpscaleFramebuffer);
-        drawFullscreenPass(PipelineManager.getFsrEasuPipeline(), this.sceneColorTextureView);
-        renderer.endRenderPass(commandBuffer);
-        if (gpuProfiler != null) {
-            gpuProfiler.endStage(GpuFrameProfiler.Stage.FSR_EASU);
-        }
-
-        GraphicsPipeline finalPipeline = Initializer.CONFIG.fsrSharpness > 0
-                ? PipelineManager.getFsrRcasPipeline()
-                : PipelineManager.getFastBlitPipeline();
-
-        if (gpuProfiler != null) {
-            gpuProfiler.beginStage(GpuFrameProfiler.Stage.FSR_RCAS);
-        }
-        renderer.beginRenderPass(this.tonemapRenderPass, this.tonemapFramebuffer);
-        drawFullscreenPass(finalPipeline, this.fsrUpscaleColorTextureView);
-        renderer.endRenderPass(commandBuffer);
-        if (gpuProfiler != null) {
-            gpuProfiler.endStage(GpuFrameProfiler.Stage.FSR_RCAS);
+        if (shouldSharpen()) {
+            if (gpuProfiler != null) {
+                gpuProfiler.beginStage(GpuFrameProfiler.Stage.FSR_RCAS);
+            }
+            renderer.beginRenderPass(this.tonemapRenderPass, this.tonemapFramebuffer);
+            drawFullscreenPass(PipelineManager.getFsrRcasPipeline(), rcasInputView);
+            renderer.endRenderPass(commandBuffer);
+            if (gpuProfiler != null) {
+                gpuProfiler.endStage(GpuFrameProfiler.Stage.FSR_RCAS);
+            }
+        } else if (doUpscale) {
+            if (gpuProfiler != null) {
+                gpuProfiler.beginStage(GpuFrameProfiler.Stage.FSR_RCAS);
+            }
+            renderer.beginRenderPass(this.tonemapRenderPass, this.tonemapFramebuffer);
+            drawFullscreenPass(PipelineManager.getFastBlitPipeline(), rcasInputView);
+            renderer.endRenderPass(commandBuffer);
+            if (gpuProfiler != null) {
+                gpuProfiler.endStage(GpuFrameProfiler.Stage.FSR_RCAS);
+            }
         }
 
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            this.tonemapFramebuffer.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        }
+        GpuTextureView tonemapInputView = this.tonemapColorTextureView;
+        if (shouldSharpen() || doUpscale) {
+            try (MemoryStack stack = MemoryStack.stackPush()) {
+                this.tonemapFramebuffer.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            }
 
-        if (gpuProfiler != null) {
-            gpuProfiler.beginStage(GpuFrameProfiler.Stage.TONEMAP);
-        }
-        renderer.beginRenderPass(this.swapChainMainRenderPass, this.swapChain);
-        drawFullscreenPass(PipelineManager.getTonemapPipeline(), this.tonemapColorTextureView);
-        renderer.endRenderPass(commandBuffer);
-        if (gpuProfiler != null) {
-            gpuProfiler.endStage(GpuFrameProfiler.Stage.TONEMAP);
+            if (gpuProfiler != null) {
+                gpuProfiler.beginStage(GpuFrameProfiler.Stage.TONEMAP);
+            }
+            renderer.beginRenderPass(this.swapChainMainRenderPass, this.swapChain);
+            drawFullscreenPass(PipelineManager.getTonemapPipeline(), tonemapInputView);
+            renderer.endRenderPass(commandBuffer);
+            if (gpuProfiler != null) {
+                gpuProfiler.endStage(GpuFrameProfiler.Stage.TONEMAP);
+            }
         }
 
         restoreFullscreenState();
@@ -334,8 +364,15 @@ public class DefaultMainPass implements MainPass {
         return this.renderingToSwapChain ? this.swapChainAuxRenderPass : this.sceneAuxRenderPass;
     }
 
-    private boolean shouldRenderWorldWithFsr() {
+    private boolean shouldUpscale() {
         return Initializer.CONFIG.fsrEnabled
+                && Minecraft.getInstance().level != null
+                && this.swapChain.getWidth() > 0
+                && this.swapChain.getHeight() > 0;
+    }
+
+    private boolean shouldSharpen() {
+        return Initializer.CONFIG.fsrSharpness > 0
                 && Minecraft.getInstance().level != null
                 && this.swapChain.getWidth() > 0
                 && this.swapChain.getHeight() > 0;
@@ -458,23 +495,30 @@ public class DefaultMainPass implements MainPass {
         }
     }
 
-    private void ensureFsrResources() {
-        if (!Initializer.CONFIG.fsrEnabled || this.swapChain.getWidth() <= 0 || this.swapChain.getHeight() <= 0) {
+    private void ensurePostProcessResources() {
+        if (this.swapChain.getWidth() <= 0 || this.swapChain.getHeight() <= 0) {
             cleanupFsrResources();
             return;
         }
 
-        int internalWidth = getInternalWidth();
-        int internalHeight = getInternalHeight();
+        boolean needPostProcess = isPostProcessEnabled();
+        if (!needPostProcess) {
+            cleanupFsrResources();
+            return;
+        }
+
+        boolean doUpscale = shouldUpscale();
         int outputWidth = this.swapChain.getWidth();
         int outputHeight = this.swapChain.getHeight();
+        int sceneWidth = doUpscale ? getInternalWidth() : outputWidth;
+        int sceneHeight = doUpscale ? getInternalHeight() : outputHeight;
 
         boolean sceneMatches = this.sceneFramebuffer != null
-                && this.sceneFramebuffer.getWidth() == internalWidth
-                && this.sceneFramebuffer.getHeight() == internalHeight;
-        boolean upscaleMatches = this.fsrUpscaleFramebuffer != null
+                && this.sceneFramebuffer.getWidth() == sceneWidth
+                && this.sceneFramebuffer.getHeight() == sceneHeight;
+        boolean upscaleMatches = !doUpscale || (this.fsrUpscaleFramebuffer != null
                 && this.fsrUpscaleFramebuffer.getWidth() == outputWidth
-                && this.fsrUpscaleFramebuffer.getHeight() == outputHeight;
+                && this.fsrUpscaleFramebuffer.getHeight() == outputHeight);
         boolean tonemapMatches = this.tonemapFramebuffer != null
                 && this.tonemapFramebuffer.getWidth() == outputWidth
                 && this.tonemapFramebuffer.getHeight() == outputHeight;
@@ -484,43 +528,52 @@ public class DefaultMainPass implements MainPass {
         }
 
         cleanupFsrResources();
-        createFsrResources(internalWidth, internalHeight, outputWidth, outputHeight);
+        createPostProcessResources(sceneWidth, sceneHeight, outputWidth, outputHeight, doUpscale);
     }
 
-    private void createFsrResources(int internalWidth, int internalHeight, int outputWidth, int outputHeight) {
-        VulkanImage sceneColorAttachment = VulkanImage.builder(internalWidth, internalHeight)
-                                                      .setName("FSR Scene Color")
-                                                      .setFormat(this.swapChain.getColorAttachment().format)
-                                                      .setUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
-                                                      .setLinearFiltering(true)
-                                                      .setClamp(true)
-                                                      .createVulkanImage();
-        VulkanImage sceneDepthAttachment = VulkanImage.builder(internalWidth, internalHeight)
-                                                      .setName("FSR Scene Depth")
-                                                      .setFormat(this.swapChain.getDepthAttachment().format)
-                                                      .setUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
-                                                      .setLinearFiltering(false)
-                                                      .setClamp(true)
-                                                      .createVulkanImage();
+    private void createPostProcessResources(int sceneWidth, int sceneHeight, int outputWidth, int outputHeight, boolean doUpscale) {
+        String sceneTag = doUpscale ? "FSR" : "CAS";
+        VulkanImage sceneColorAttachment = VulkanImage.builder(sceneWidth, sceneHeight)
+                                                       .setName(sceneTag + " Scene Color")
+                                                       .setFormat(this.swapChain.getColorAttachment().format)
+                                                       .setUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+                                                       .setLinearFiltering(true)
+                                                       .setClamp(true)
+                                                       .createVulkanImage();
+        VulkanImage sceneDepthAttachment = VulkanImage.builder(sceneWidth, sceneHeight)
+                                                       .setName(sceneTag + " Scene Depth")
+                                                       .setFormat(this.swapChain.getDepthAttachment().format)
+                                                       .setUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+                                                       .setLinearFiltering(false)
+                                                       .setClamp(true)
+                                                       .createVulkanImage();
 
         this.sceneFramebuffer = Framebuffer.builder(sceneColorAttachment, sceneDepthAttachment).build();
 
-        VulkanImage upscaleColorAttachment = VulkanImage.builder(outputWidth, outputHeight)
-                                                        .setName("FSR Upscale Color")
-                                                        .setFormat(this.swapChain.getColorAttachment().format)
-                                                        .setUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
-                                                        .setLinearFiltering(true)
-                                                        .setClamp(true)
-                                                        .createVulkanImage();
-        this.fsrUpscaleFramebuffer = Framebuffer.builder(upscaleColorAttachment, null).build();
+        VulkanImage upscaleColorAttachment = null;
+        if (doUpscale) {
+            upscaleColorAttachment = VulkanImage.builder(outputWidth, outputHeight)
+                                                 .setName("FSR Upscale Color")
+                                                 .setFormat(this.swapChain.getColorAttachment().format)
+                                                 .setUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+                                                 .setLinearFiltering(true)
+                                                 .setClamp(true)
+                                                 .createVulkanImage();
+            this.fsrUpscaleFramebuffer = Framebuffer.builder(upscaleColorAttachment, null).build();
+        }
 
         VkGpuDevice device = (VkGpuDevice) RenderSystem.getDevice();
         this.sceneColorTexture = device.gpuTextureFromVulkanImage(sceneColorAttachment);
         this.sceneColorTextureView = device.createTextureView((VkGpuTexture) this.sceneColorTexture);
         this.sceneDepthTexture = device.gpuTextureFromVulkanImage(sceneDepthAttachment);
 
-        this.fsrUpscaleColorTexture = device.gpuTextureFromVulkanImage(upscaleColorAttachment);
-        this.fsrUpscaleColorTextureView = device.createTextureView((VkGpuTexture) this.fsrUpscaleColorTexture);
+        if (doUpscale) {
+            this.fsrUpscaleColorTexture = device.gpuTextureFromVulkanImage(upscaleColorAttachment);
+            this.fsrUpscaleColorTextureView = device.createTextureView((VkGpuTexture) this.fsrUpscaleColorTexture);
+        } else {
+            this.fsrUpscaleColorTexture = null;
+            this.fsrUpscaleColorTextureView = null;
+        }
 
         VulkanImage tonemapColorAttachment = VulkanImage.builder(outputWidth, outputHeight)
                                                         .setName("Tonemap Color")

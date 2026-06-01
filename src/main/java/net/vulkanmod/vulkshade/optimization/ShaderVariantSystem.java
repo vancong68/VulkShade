@@ -56,12 +56,7 @@ public class ShaderVariantSystem {
         PBR(1 << 2),
         SHADOW(1 << 3),
         FOG(1 << 4),
-        WATER_REFLECT(1 << 5),
-        EMISSIVE(1 << 6),
-        VOLUMETRIC(1 << 7),
-        VOX_LOD(1 << 8),
-        MOTION_BLUR(1 << 9),
-        LENS_FLARE(1 << 10);
+
 
         final int bit;
         ShaderFeature(int bit) { this.bit = bit; }
@@ -148,11 +143,11 @@ public class ShaderVariantSystem {
                 | ShaderFeature.VOX_LOD.getBit();
             case HIGH -> ShaderFeature.FOG.getBit() | ShaderFeature.EMISSIVE.getBit()
                 | ShaderFeature.SSAO.getBit() | ShaderFeature.SHADOW.getBit()
-                | ShaderFeature.BLOOM.getBit() | ShaderFeature.WATER_REFLECT.getBit()
+                | ShaderFeature.BLOOM.getBit()
                 | ShaderFeature.VOX_LOD.getBit();
             case ULTRA -> ShaderFeature.FOG.getBit() | ShaderFeature.EMISSIVE.getBit()
                 | ShaderFeature.SSAO.getBit() | ShaderFeature.SHADOW.getBit()
-                | ShaderFeature.BLOOM.getBit() | ShaderFeature.WATER_REFLECT.getBit()
+                | ShaderFeature.BLOOM.getBit()
                 | ShaderFeature.PBR.getBit() | ShaderFeature.VOLUMETRIC.getBit()
                 | ShaderFeature.VOX_LOD.getBit()
                 | ShaderFeature.MOTION_BLUR.getBit() | ShaderFeature.LENS_FLARE.getBit();

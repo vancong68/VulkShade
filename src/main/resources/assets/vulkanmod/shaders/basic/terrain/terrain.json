@@ -39,7 +39,12 @@
             { "name": "terrainShadowQuality", "type": "int", "count": 1, "values": [ 0 ] },
             { "name": "terrainLightingQuality", "type": "int", "count": 1, "values": [ 0 ] },
             { "name": "blockEmissiveTexturesEnabled", "type": "int", "count": 1, "values": [ 1 ] },
-            { "name": "pbrEnabled", "type": "int", "count": 1, "values": [ 0 ] }
+            { "name": "pbrEnabled", "type": "int", "count": 1, "values": [ 0 ] },
+            { "name": "pbrFallbackRoughness", "type": "float", "count": 1, "values": [ 0.8 ] },
+            { "name": "pbrFallbackMetallic", "type": "float", "count": 1, "values": [ 0.0 ] },
+            { "name": "pbrFallbackF0", "type": "float", "count": 1, "values": [ 0.04 ] },
+            { "name": "pbrFallbackAO", "type": "float", "count": 1, "values": [ 1.0 ] },
+            { "name": "pbrFallbackEmissive", "type": "float", "count": 1, "values": [ 0.0 ] }
         ] }
     ],
     "PushConstants": [

@@ -4,6 +4,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import net.minecraft.client.Minecraft;
 import net.vulkanmod.Initializer;
+import net.vulkanmod.render.texture.pbr.PBRMaterial;
 import net.vulkanmod.vulkan.VRenderSystem;
 import net.vulkanmod.vulkan.shader.layout.Uniform;
 import net.vulkanmod.vulkan.util.MappedBuffer;
@@ -43,6 +44,14 @@ public class Uniforms {
         vec1i_uniformMap.put("waterQuality", () -> Initializer.CONFIG.waterQuality);
         vec1i_uniformMap.put("blockEmissiveTexturesEnabled", () -> Initializer.CONFIG.blockEmissiveTextures ? 1 : 0);
         vec1i_uniformMap.put("pbrEnabled", () -> net.vulkanmod.vulkshade.config.VulkShadeConfig.getInstance().isPBRenabled() ? 1 : 0);
+
+        // PBR fallback material uniforms
+        PBRMaterial fallbackMat = PBRMaterial.DEFAULT;
+        vec1f_uniformMap.put("pbrFallbackRoughness", () -> fallbackMat.roughness);
+        vec1f_uniformMap.put("pbrFallbackMetallic", () -> fallbackMat.metallic);
+        vec1f_uniformMap.put("pbrFallbackF0", () -> fallbackMat.f0);
+        vec1f_uniformMap.put("pbrFallbackAO", () -> fallbackMat.ao);
+        vec1f_uniformMap.put("pbrFallbackEmissive", () -> fallbackMat.emissive);
 
         //Vec1
         vec1f_uniformMap.put("FogStart", () -> VRenderSystem.getFogData().renderDistanceStart);

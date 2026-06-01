@@ -24,8 +24,14 @@ import java.util.Map;
 import java.util.Optional;
 
 public final class PBRTextureManager {
-    private static final String SPECULAR_SUFFIX = "_s";
-    private static final String NORMAL_SUFFIX = "_n";
+    private static final String[][] SPECULAR_SUFFIXES = {
+        {"_s"},                // LabPBR / Continuum / Complementary
+        {"_MER"},              // RTX RTXGI
+        {"_METALLIC", "_SPEC"}};
+    private static final String[][] NORMAL_SUFFIXES = {
+        {"_n"},                // LabPBR / Continuum / Complementary
+        {"_NRM"},              // RTX RTXGI
+        {"_NORMAL"}};
 
     public static final PBRTextureManager INSTANCE = new PBRTextureManager();
 
@@ -36,11 +42,11 @@ public final class PBRTextureManager {
     private @Nullable DynamicTexture defaultNormalTexture;
     private boolean dirty = true;
 
-    private PBRTextureManager() {
-    }
+    private final PBRMaterialRegistry materialRegistry = PBRMaterialRegistry.getInstance();
 
-    public void tick() {
-    }
+    private PBRTextureManager() {}
+
+    public void tick() {}
 
     public void markDirty() {
         clearCache();
@@ -63,7 +69,7 @@ public final class PBRTextureManager {
         ensureReady();
         if (baseTextureLocation == null) return getDefaultSpecularTexture().getTextureView();
         AbstractTexture tex = this.specularCache.computeIfAbsent(baseTextureLocation,
-            loc -> loadPBRTexture(loc, SPECULAR_SUFFIX));
+            loc -> loadPBRTexture(loc, SPECULAR_SUFFIXES, false));
         return tex.getTextureView();
     }
 
@@ -71,45 +77,45 @@ public final class PBRTextureManager {
         ensureReady();
         if (baseTextureLocation == null) return getDefaultNormalTexture().getTextureView();
         AbstractTexture tex = this.normalCache.computeIfAbsent(baseTextureLocation,
-            loc -> loadPBRTexture(loc, NORMAL_SUFFIX));
+            loc -> loadPBRTexture(loc, NORMAL_SUFFIXES, true));
         return tex.getTextureView();
     }
 
     private void ensureReady() {
         if (this.defaultSpecularTexture == null) {
             NativeImage img = new NativeImage(NativeImage.Format.RGBA, 1, 1, false);
-            img.setPixel(0, 0, packRGBA(0, 229, 0, 255));
+            img.setPixel(0, 0, 0x00000000);
             this.defaultSpecularTexture = new DynamicTexture(() -> "vulkanmod_pbr_specular_default", img);
             this.defaultSpecularTexture.upload();
         }
         if (this.defaultNormalTexture == null) {
             NativeImage img = new NativeImage(NativeImage.Format.RGBA, 1, 1, false);
-            img.setPixel(0, 0, packRGBA(128, 128, 255, 255));
+            img.setPixel(0, 0, 0x00000000);
             this.defaultNormalTexture = new DynamicTexture(() -> "vulkanmod_pbr_normal_default", img);
             this.defaultNormalTexture.upload();
         }
         this.dirty = false;
     }
 
-    private AbstractTexture loadPBRTexture(ResourceLocation baseTextureLocation, String suffix) {
+    private AbstractTexture loadPBRTexture(ResourceLocation baseTextureLocation, String[][] suffixSets, boolean isNormal) {
         ResourceManager rm = Minecraft.getInstance().getResourceManager();
         AbstractTexture baseTexture = Minecraft.getInstance().getTextureManager().getTexture(baseTextureLocation);
 
         if (baseTexture instanceof TextureAtlas atlas) {
-            AbstractTexture atlasTex = loadAtlasPBRTexture(atlas, rm, suffix);
+            AbstractTexture atlasTex = loadAtlasPBRTexture(atlas, rm, suffixSets);
             if (atlasTex != null) return atlasTex;
         } else {
-            AbstractTexture simpleTex = loadSimplePBRTexture(baseTextureLocation, rm, suffix);
+            AbstractTexture simpleTex = loadSimplePBRTexture(baseTextureLocation, rm, suffixSets);
             if (simpleTex != null) return simpleTex;
         }
 
-        return suffix.equals(SPECULAR_SUFFIX) ? getDefaultSpecularTexture() : getDefaultNormalTexture();
+        return isNormal ? getDefaultNormalTexture() : getDefaultSpecularTexture();
     }
 
     private @Nullable AbstractTexture loadSimplePBRTexture(ResourceLocation baseLocation,
-                                                            ResourceManager rm, String suffix) {
-        ResourceLocation texLocation = appendSuffix(baseLocation, suffix);
-        if (!resourceExists(rm, texLocation)) return null;
+                                                            ResourceManager rm, String[][] suffixSets) {
+        ResourceLocation texLocation = findExistingPBRTexture(baseLocation, rm, suffixSets);
+        if (texLocation == null) return null;
         SimpleTexture texture = new SimpleTexture(texLocation);
         try {
             texture.apply(texture.loadContents(rm));
@@ -120,8 +126,19 @@ public final class PBRTextureManager {
         }
     }
 
+    private @Nullable ResourceLocation findExistingPBRTexture(ResourceLocation baseLocation,
+                                                               ResourceManager rm, String[][] suffixSets) {
+        for (String[] suffixGroup : suffixSets) {
+            for (String suffix : suffixGroup) {
+                ResourceLocation loc = appendSuffix(baseLocation, suffix);
+                if (resourceExists(rm, loc)) return loc;
+            }
+        }
+        return null;
+    }
+
     private @Nullable AbstractTexture loadAtlasPBRTexture(TextureAtlas atlas,
-                                                           ResourceManager rm, String suffix) {
+                                                           ResourceManager rm, String[][] suffixSets) {
         TextureAtlasAccessor accessor = (TextureAtlasAccessor) atlas;
         int atlasWidth = accessor.callGetWidth();
         int atlasHeight = accessor.callGetHeight();
@@ -131,7 +148,7 @@ public final class PBRTextureManager {
         boolean foundAny = false;
         for (TextureAtlasSprite sprite : accessor.getTexturesByName().values()) {
             if (sprite == atlas.missingSprite()) continue;
-            NativeImage frame = loadSpritePBRFrame(accessor, sprite, rm, suffix);
+            NativeImage frame = loadSpritePBRFrame(accessor, sprite, rm, suffixSets);
             if (frame == null) continue;
             foundAny = true;
             copyIntoAtlas(atlasImage, frame, sprite.getX(), sprite.getY());
@@ -143,17 +160,20 @@ public final class PBRTextureManager {
             return null;
         }
 
-        String name = suffix.equals(SPECULAR_SUFFIX) ? "pbr_specular" : "pbr_normal";
+        String name = suffixSets == SPECULAR_SUFFIXES ? "pbr_specular" : "pbr_normal";
         DynamicTexture result = new DynamicTexture(() -> "vulkanmod_" + name + "_atlas_" + atlas.location(), atlasImage);
         result.upload();
         return result;
     }
 
     private @Nullable NativeImage loadSpritePBRFrame(TextureAtlasAccessor accessor, TextureAtlasSprite sprite,
-                                                      ResourceManager rm, String suffix) {
+                                                       ResourceManager rm, String[][] suffixSets) {
         ResourceLocation spriteLocation = sprite.contents().name();
         ResourceLocation imageLocation = spriteLocation.withPrefix("textures/").withSuffix(".png");
-        ResourceLocation texLocation = appendSuffix(imageLocation, suffix);
+
+        ResourceLocation texLocation = findExistingPBRTexture(imageLocation, rm, suffixSets);
+        if (texLocation == null) return null;
+
         Resource resource = rm.getResource(texLocation).orElse(null);
         if (resource == null) return null;
 
@@ -211,6 +231,7 @@ public final class PBRTextureManager {
         }
         specularCache.clear();
         normalCache.clear();
+        materialRegistry.clear();
     }
 
     private DynamicTexture getDefaultSpecularTexture() { ensureReady(); return this.defaultSpecularTexture; }
@@ -220,16 +241,12 @@ public final class PBRTextureManager {
         return rm.getResource(loc).isPresent();
     }
 
-    private static ResourceLocation appendSuffix(ResourceLocation location, String suffix) {
+    static ResourceLocation appendSuffix(ResourceLocation location, String suffix) {
         String path = location.getPath();
         int extIdx = path.lastIndexOf('.');
         String updated = extIdx >= 0
             ? path.substring(0, extIdx) + suffix + path.substring(extIdx)
             : path + suffix;
         return ResourceLocation.fromNamespaceAndPath(location.getNamespace(), updated);
-    }
-
-    private static int packRGBA(int r, int g, int b, int a) {
-        return (a & 0xFF) << 24 | (b & 0xFF) << 16 | (g & 0xFF) << 8 | (r & 0xFF);
     }
 }

@@ -41,8 +41,8 @@
   "vulkanmod.options.fsr.tooltip": "Render the world at a lower internal resolution, then upscale it before the HUD and menus are drawn.",
   "vulkanmod.options.fsrInternalScale": "FSR Internal Resolution",
   "vulkanmod.options.fsrInternalScale.tooltip": "Sets the world render resolution before FSR upscales it back to the current window resolution.",
-  "vulkanmod.options.fsrSharpness": "FSR Sharpness",
-  "vulkanmod.options.fsrSharpness.tooltip": "Controls the RCAS sharpening pass after upscaling. Turn this off if you want only the upscale step.",
+  "vulkanmod.options.casSharpness": "CAS Sharpness",
+  "vulkanmod.options.casSharpness.tooltip": "Contrast Adaptive Sharpening strength. Works independently of FSR upscaling. Higher values enhance local contrast and detail.",
 
   "vulkanmod.options.refreshRate": "Refresh Rate",
 
@@ -106,7 +106,6 @@
   "vulkshade.effects.bloomStrength": "Bloom Strength",
   "vulkshade.effects.bloomStrength.tooltip": "Controls bloom intensity. Higher values produce stronger glow around bright objects.",
   "vulkshade.effects.pbr": "PBR Lighting",
-  "vulkshade.effects.shadows": "Enhanced Shadows",
 
   "vulkshade.fallback.vulkan": "Vulkan",
   "vulkshade.fallback.opengl": "OpenGL (Fallback)",
@@ -133,8 +132,7 @@
 
   "vulkanmod.options.feature.fog": "Fog",
   "vulkanmod.options.feature.fog.tooltip": "Enables biome-colored fog effects. Disable for a performance gain in foggy environments.",
-  "vulkanmod.options.feature.waterReflect": "Water Reflections",
-  "vulkanmod.options.feature.waterReflect.tooltip": "Enables screen-space water reflections. Significantly impacts water visual quality when enabled.",
+
   "vulkanmod.options.feature.emissive": "Emissive Textures",
   "vulkanmod.options.feature.emissive.tooltip": "Enables emissive block texture rendering. Disable if emissive textures are not needed.",
   "vulkanmod.options.feature.volumetric": "Volumetric Lighting",
@@ -143,7 +141,6 @@
   "vulkanmod.options.feature.ssao.tooltip": "Enables screen-space ambient occlusion for contact shadows on nearby geometry.",
   "vulkanmod.options.feature.bloom.tooltip": "Enables bloom post-processing for bright light sources and emissive surfaces.",
   "vulkanmod.options.feature.pbr.tooltip": "Enables physically-based deferred lighting with metalness/roughness workflow.",
-  "vulkanmod.options.feature.shadows.tooltip": "Enables enhanced shadow mapping with cascaded shadow maps.",
 
   "vulkanmod.options.feature.motionBlur": "Motion Blur",
   "vulkanmod.options.feature.motionBlur.tooltip": "Enables directional motion blur based on camera movement. Adds cinematic blur to fast motion.",

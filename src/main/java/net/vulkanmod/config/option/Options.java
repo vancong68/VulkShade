@@ -313,14 +313,14 @@ public abstract class Options {
                                         },
                                         () -> config.fsrInternalScale)
                                 .setTooltip(Component.translatable("vulkanmod.options.fsrInternalScale.tooltip")),
-                        new RangeOption(Component.translatable("vulkanmod.options.fsrSharpness"),
+                        new RangeOption(Component.translatable("vulkanmod.options.casSharpness"),
                                         0, 100, 1,
                                         value -> value == 0
                                                 ? Component.translatable("options.off")
                                                 : Component.nullToEmpty(value + "%"),
                                         value -> config.fsrSharpness = value,
                                         () -> config.fsrSharpness)
-                                .setTooltip(Component.translatable("vulkanmod.options.fsrSharpness.tooltip")),
+                                .setTooltip(Component.translatable("vulkanmod.options.casSharpness.tooltip")),
                 })
         };
 
@@ -471,18 +471,10 @@ public abstract class Options {
                                          value -> vcfg.setPBRenabled(value),
                                          () -> config.featurePBR)
                                 .setTooltip(Component.translatable("vulkanmod.options.feature.pbr.tooltip")),
-                        new SwitchOption(Component.translatable("vulkshade.effects.shadows"),
-                                         value -> vcfg.setEnhancedShadows(value),
-                                         () -> config.featureShadows)
-                                .setTooltip(Component.translatable("vulkanmod.options.feature.shadows.tooltip")),
                         new SwitchOption(Component.translatable("vulkanmod.options.feature.fog"),
                                          value -> vcfg.setFogEnabled(value),
                                          () -> config.featureFog)
                                 .setTooltip(Component.translatable("vulkanmod.options.feature.fog.tooltip")),
-                        new SwitchOption(Component.translatable("vulkanmod.options.feature.waterReflect"),
-                                         value -> vcfg.setWaterReflectEnabled(value),
-                                         () -> config.featureWaterReflect)
-                                .setTooltip(Component.translatable("vulkanmod.options.feature.waterReflect.tooltip")),
                         new SwitchOption(Component.translatable("vulkanmod.options.feature.motionBlur"),
                                          value -> vcfg.setMotionBlurEnabled(value),
                                          () -> config.featureMotionBlur)

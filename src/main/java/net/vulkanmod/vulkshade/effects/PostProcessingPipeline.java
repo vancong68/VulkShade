@@ -17,7 +17,6 @@ public class PostProcessingPipeline {
     private BloomEffect bloom;
     private MotionBlurEffect motionBlur;
     private LensFlareEffect lensFlare;
-    private PBRDeferredLighting pbr;
 
     private boolean initialized = false;
     private int width;
@@ -53,9 +52,6 @@ public class PostProcessingPipeline {
         lensFlare = new LensFlareEffect();
         lensFlare.initialize(fbWidth, fbHeight);
 
-        pbr = new PBRDeferredLighting();
-        pbr.initialize(fbWidth, fbHeight);
-
         initialized = true;
         LOGGER.info("Post-processing pipeline initialized ({}x{})", fbWidth, fbHeight);
     }
@@ -72,16 +68,6 @@ public class PostProcessingPipeline {
         }
 
         syncWithConfig();
-
-        if (pbr != null && pbr.isEnabled()) {
-            try {
-                pbr.render(cmdBuffer, sceneColor, depthBuffer);
-            } catch (Exception e) {
-                LOGGER.error("PBR failed, disabling permanently", e);
-                pbr.setEnabled(false);
-            }
-            effectBarrier(cmdBuffer);
-        }
 
         int effectsRun = 0;
 
@@ -161,7 +147,6 @@ public class PostProcessingPipeline {
         if (bloom != null) { bloom.cleanup(); bloom = null; }
         if (motionBlur != null) { motionBlur.cleanup(); motionBlur = null; }
         if (lensFlare != null) { lensFlare.cleanup(); lensFlare = null; }
-        if (pbr != null) { pbr.cleanup(); pbr = null; }
         if (tempBuffer != null) { tempBuffer.free(); tempBuffer = null; }
         initialized = false;
     }
@@ -169,7 +154,6 @@ public class PostProcessingPipeline {
     public BloomEffect getBloom() { return bloom; }
     public MotionBlurEffect getMotionBlur() { return motionBlur; }
     public LensFlareEffect getLensFlare() { return lensFlare; }
-    public PBRDeferredLighting getPbr() { return pbr; }
     public boolean isInitialized() { return initialized; }
 
     private void syncWithConfig() {
@@ -178,7 +162,6 @@ public class PostProcessingPipeline {
             if (bloom != null) bloom.setEnabled(svs.isFeatureEnabled(ShaderVariantSystem.ShaderFeature.BLOOM));
             if (lensFlare != null) lensFlare.setEnabled(svs.isFeatureEnabled(ShaderVariantSystem.ShaderFeature.LENS_FLARE));
             if (motionBlur != null) motionBlur.setEnabled(svs.isFeatureEnabled(ShaderVariantSystem.ShaderFeature.MOTION_BLUR));
-            if (pbr != null) pbr.setEnabled(svs.isFeatureEnabled(ShaderVariantSystem.ShaderFeature.PBR));
 
             VulkShadeConfig vcfg = VulkShadeConfig.getInstance();
             if (bloom != null) bloom.setIntensity(vcfg.getBloomIntensity());
