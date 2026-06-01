@@ -42,6 +42,7 @@ public class Uniforms {
         vec1i_uniformMap.put("skyQuality", () -> Initializer.CONFIG.skyQuality);
         vec1i_uniformMap.put("waterQuality", () -> Initializer.CONFIG.waterQuality);
         vec1i_uniformMap.put("blockEmissiveTexturesEnabled", () -> Initializer.CONFIG.blockEmissiveTextures ? 1 : 0);
+        vec1i_uniformMap.put("pbrEnabled", () -> net.vulkanmod.vulkshade.config.VulkShadeConfig.getInstance().isPBRenabled() ? 1 : 0);
 
         //Vec1
         vec1f_uniformMap.put("FogStart", () -> VRenderSystem.getFogData().renderDistanceStart);

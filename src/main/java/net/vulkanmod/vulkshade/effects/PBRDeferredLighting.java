@@ -293,7 +293,7 @@ public class PBRDeferredLighting {
 
     private String generatePBRSource() {
         boolean highQuality = quality == PBRQuality.HIGH;
-        return """
+        String source = """
             #version 450
             layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
             layout(binding = 0, rgba16f) uniform readonly image2D gPosition;
@@ -380,9 +380,11 @@ public class PBRDeferredLighting {
                 vec3 finalColor = ambient + Lo;
                 imageStore(outputImage, coord, vec4(finalColor, 1.0));
             }
-            """.replace("__METALLIC__", String.format("%.2f", metallicFactor))
-              .replace("__ROUGHNESS__", String.format("%.2f", roughnessFactor))
-              .replace("__AO__", String.format("%.2f", aoStrength));
+            """;
+        return source
+            .replace("__METALLIC__", String.format("%.2f", metallicFactor))
+            .replace("__ROUGHNESS__", String.format("%.2f", roughnessFactor))
+            .replace("__AO__", String.format("%.2f", aoStrength));
     }
 
     private String generateCompositeSource() {

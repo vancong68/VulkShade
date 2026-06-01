@@ -192,7 +192,7 @@ vec3 pbr_f0_for_metal(vec3 albedo, int metalID) {
     return albedo;
 }
 
-vec3 pbr_emissive_contribution(vec3 emissive, vec3 emissiveColor) {
+vec3 pbr_emissive_contribution(float emissive, vec3 emissiveColor) {
     return emissive * emissiveColor;
 }
 
