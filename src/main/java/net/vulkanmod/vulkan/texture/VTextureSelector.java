@@ -77,6 +77,8 @@ public abstract class VTextureSelector {
             case "Sampler5" -> 5;
             case "Sampler6" -> 6;
             case "Sampler7" -> 7;
+            case "Sampler8" -> 8;
+            case "Sampler9" -> 9;
             default -> -1;
         };
     }

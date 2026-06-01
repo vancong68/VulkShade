@@ -53,6 +53,7 @@ import net.vulkanmod.render.profiling.Profiler;
 import net.vulkanmod.render.profiling.Profiler.Result;
 import net.vulkanmod.render.sky.SkyRenderer;
 import net.vulkanmod.render.texture.emissive.EmissiveTextureManager;
+import net.vulkanmod.render.texture.pbr.PBRTextureManager;
 import net.vulkanmod.render.vertex.TerrainRenderType;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.VRenderSystem;
@@ -1153,6 +1154,8 @@ public class WorldRenderer {
         RenderSystem.setShaderTexture(0, blockAtlasTexture.getTextureView());
         RenderSystem.setShaderTexture(2, Minecraft.getInstance().gameRenderer.lightTexture().getTextureView());
         RenderSystem.setShaderTexture(6, EmissiveTextureManager.INSTANCE.getEmissiveTextureView(TextureAtlas.LOCATION_BLOCKS));
+        RenderSystem.setShaderTexture(7, PBRTextureManager.INSTANCE.getSpecularTextureView(TextureAtlas.LOCATION_BLOCKS));
+        RenderSystem.setShaderTexture(8, PBRTextureManager.INSTANCE.getNormalTextureView(TextureAtlas.LOCATION_BLOCKS));
 
         // Bind shadow map for terrain lighting
         bindShadowMap();
@@ -1186,6 +1189,8 @@ public class WorldRenderer {
             if (Initializer.CONFIG.waterQuality == 0 && this.waterSceneDepthTextureView != null) {
                 RenderSystem.setShaderTexture(7, this.waterSceneDepthTextureView);
             }
+            RenderSystem.setShaderTexture(8, PBRTextureManager.INSTANCE.getSpecularTextureView(TextureAtlas.LOCATION_BLOCKS));
+            RenderSystem.setShaderTexture(9, PBRTextureManager.INSTANCE.getNormalTextureView(TextureAtlas.LOCATION_BLOCKS));
         }
 
         GpuFrameProfiler gpuProfiler = renderer.getGpuProfiler();

@@ -461,6 +461,12 @@ public abstract class Options {
                                          value -> vcfg.setBloomEnabled(value),
                                          () -> config.featureBloom)
                                 .setTooltip(Component.translatable("vulkanmod.options.feature.bloom.tooltip")),
+                        new RangeOption(Component.translatable("vulkshade.effects.bloomStrength"),
+                                        0, 100, 5,
+                                        value -> Component.nullToEmpty(value + "%"),
+                                        value -> vcfg.setBloomIntensity(value / 100.0f),
+                                        () -> (int)(vcfg.getBloomIntensity() * 100))
+                                .setTooltip(Component.translatable("vulkshade.effects.bloomStrength.tooltip")),
                         new SwitchOption(Component.translatable("vulkshade.effects.pbr"),
                                          value -> vcfg.setPBRenabled(value),
                                          () -> config.featurePBR)
@@ -477,18 +483,16 @@ public abstract class Options {
                                          value -> vcfg.setWaterReflectEnabled(value),
                                          () -> config.featureWaterReflect)
                                 .setTooltip(Component.translatable("vulkanmod.options.feature.waterReflect.tooltip")),
-                        new SwitchOption(Component.translatable("vulkanmod.options.feature.emissive"),
-                                         value -> vcfg.setEmissiveEnabled(value),
-                                         () -> config.featureEmissive)
-                                .setTooltip(Component.translatable("vulkanmod.options.feature.emissive.tooltip")),
-                        new SwitchOption(Component.translatable("vulkanmod.options.feature.volumetric"),
-                                         value -> vcfg.setVolumetricEnabled(value),
-                                         () -> config.featureVolumetric)
-                                .setTooltip(Component.translatable("vulkanmod.options.feature.volumetric.tooltip")),
                         new SwitchOption(Component.translatable("vulkanmod.options.feature.motionBlur"),
                                          value -> vcfg.setMotionBlurEnabled(value),
                                          () -> config.featureMotionBlur)
                                 .setTooltip(Component.translatable("vulkanmod.options.feature.motionBlur.tooltip")),
+                        new RangeOption(Component.translatable("vulkshade.effects.motionBlurStrength"),
+                                        0, 95, 5,
+                                        value -> Component.nullToEmpty(value + "%"),
+                                        value -> vcfg.setMotionBlurStrength(value / 100.0f),
+                                        () -> (int)(vcfg.getMotionBlurStrength() * 100))
+                                .setTooltip(Component.translatable("vulkshade.effects.motionBlurStrength.tooltip")),
                         new SwitchOption(Component.translatable("vulkanmod.options.feature.lensFlare"),
                                          value -> vcfg.setLensFlareEnabled(value),
                                          () -> config.featureLensFlare)

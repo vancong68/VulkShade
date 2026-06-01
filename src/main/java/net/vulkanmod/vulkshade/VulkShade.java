@@ -2,6 +2,8 @@ package net.vulkanmod.vulkshade;
 
 import net.vulkanmod.Initializer;
 import net.vulkanmod.vulkan.Renderer;
+import net.vulkanmod.vulkan.pass.MainPass;
+import net.vulkanmod.vulkan.texture.VulkanImage;
 import net.vulkanmod.vulkshade.config.QualityPreset;
 import net.vulkanmod.vulkshade.config.VulkShadeConfig;
 import net.vulkanmod.vulkshade.effects.PostProcessingPipeline;
@@ -201,7 +203,9 @@ public class VulkShade {
                 LOGGER.debug("[Frame] Running post-processing pipeline on image {} ({}x{})",
                     sceneColor.getId(), sceneColor.width, sceneColor.height);
             }
-            postProcessingPipeline.render(cmd, sceneColor);
+            MainPass mainPass = renderer.getMainPass();
+            VulkanImage depthBuffer = mainPass != null ? mainPass.getDepthAttachmentImage() : null;
+            postProcessingPipeline.render(cmd, sceneColor, depthBuffer);
         }
     }
 

@@ -5,7 +5,9 @@
         { "name": "Sampler0" },
         { "name": "Sampler2" },
         { "name": "Sampler5" },
-        { "name": "Sampler6" }
+        { "name": "Sampler6" },
+        { "name": "Sampler7" },
+        { "name": "Sampler8" }
     ],
     "UBOs": [
         { "type":  "vertex", "binding": 0, "fields": [
@@ -36,7 +38,8 @@
             { "name": "moonPhase", "type": "int", "count": 1, "values": [ 0 ] },
             { "name": "terrainShadowQuality", "type": "int", "count": 1, "values": [ 0 ] },
             { "name": "terrainLightingQuality", "type": "int", "count": 1, "values": [ 0 ] },
-            { "name": "blockEmissiveTexturesEnabled", "type": "int", "count": 1, "values": [ 1 ] }
+            { "name": "blockEmissiveTexturesEnabled", "type": "int", "count": 1, "values": [ 1 ] },
+            { "name": "pbrEnabled", "type": "int", "count": 1, "values": [ 0 ] }
         ] }
     ],
     "PushConstants": [

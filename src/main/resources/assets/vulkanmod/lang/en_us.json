@@ -103,6 +103,8 @@
 
   "vulkshade.effects.ssao": "SSAO",
   "vulkshade.effects.bloom": "Bloom",
+  "vulkshade.effects.bloomStrength": "Bloom Strength",
+  "vulkshade.effects.bloomStrength.tooltip": "Controls bloom intensity. Higher values produce stronger glow around bright objects.",
   "vulkshade.effects.pbr": "PBR Lighting",
   "vulkshade.effects.shadows": "Enhanced Shadows",
 
@@ -145,6 +147,8 @@
 
   "vulkanmod.options.feature.motionBlur": "Motion Blur",
   "vulkanmod.options.feature.motionBlur.tooltip": "Enables directional motion blur based on camera movement. Adds cinematic blur to fast motion.",
+  "vulkshade.effects.motionBlurStrength": "Motion Blur Strength",
+  "vulkshade.effects.motionBlurStrength.tooltip": "Controls how much the current frame blends into the previous. Higher values produce stronger trails.",
   "vulkanmod.options.feature.lensFlare": "Lens Flare",
   "vulkanmod.options.feature.lensFlare.tooltip": "Enables lens flare and ghosting effects from bright light sources. Simulates camera lens artifacts."
 }

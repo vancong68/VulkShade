@@ -8,7 +8,9 @@
         { "name": "Sampler4" },
         { "name": "Sampler5" },
         { "name": "Sampler6" },
-        { "name": "Sampler7" }
+        { "name": "Sampler7" },
+        { "name": "Sampler8" },
+        { "name": "Sampler9" }
     ],
     "UBOs": [
         { "type":  "vertex", "binding": 0, "fields": [

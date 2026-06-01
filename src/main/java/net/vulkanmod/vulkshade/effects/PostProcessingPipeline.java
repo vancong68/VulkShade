@@ -1,6 +1,7 @@
 package net.vulkanmod.vulkshade.effects;
 
 import net.vulkanmod.vulkan.texture.VulkanImage;
+import net.vulkanmod.vulkshade.config.VulkShadeConfig;
 import net.vulkanmod.vulkshade.optimization.ShaderVariantSystem;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
@@ -16,12 +17,14 @@ public class PostProcessingPipeline {
     private BloomEffect bloom;
     private MotionBlurEffect motionBlur;
     private LensFlareEffect lensFlare;
+    private PBRDeferredLighting pbr;
 
     private boolean initialized = false;
     private int width;
     private int height;
 
     private VulkanImage tempBuffer;
+    private float lastMotionBlurStrength = -1f;
 
     public PostProcessingPipeline() {
     }
@@ -50,11 +53,14 @@ public class PostProcessingPipeline {
         lensFlare = new LensFlareEffect();
         lensFlare.initialize(fbWidth, fbHeight);
 
+        pbr = new PBRDeferredLighting();
+        pbr.initialize(fbWidth, fbHeight);
+
         initialized = true;
         LOGGER.info("Post-processing pipeline initialized ({}x{})", fbWidth, fbHeight);
     }
 
-    public void render(VkCommandBuffer cmdBuffer, VulkanImage sceneColor) {
+    public void render(VkCommandBuffer cmdBuffer, VulkanImage sceneColor, VulkanImage depthBuffer) {
         if (!initialized) return;
         if (sceneColor == null) {
             LOGGER.warn("Post-processing skipped: null scene color");
@@ -66,6 +72,16 @@ public class PostProcessingPipeline {
         }
 
         syncWithConfig();
+
+        if (pbr != null && pbr.isEnabled()) {
+            try {
+                pbr.render(cmdBuffer, sceneColor, depthBuffer);
+            } catch (Exception e) {
+                LOGGER.error("PBR failed, disabling permanently", e);
+                pbr.setEnabled(false);
+            }
+            effectBarrier(cmdBuffer);
+        }
 
         int effectsRun = 0;
 
@@ -145,6 +161,7 @@ public class PostProcessingPipeline {
         if (bloom != null) { bloom.cleanup(); bloom = null; }
         if (motionBlur != null) { motionBlur.cleanup(); motionBlur = null; }
         if (lensFlare != null) { lensFlare.cleanup(); lensFlare = null; }
+        if (pbr != null) { pbr.cleanup(); pbr = null; }
         if (tempBuffer != null) { tempBuffer.free(); tempBuffer = null; }
         initialized = false;
     }
@@ -152,6 +169,7 @@ public class PostProcessingPipeline {
     public BloomEffect getBloom() { return bloom; }
     public MotionBlurEffect getMotionBlur() { return motionBlur; }
     public LensFlareEffect getLensFlare() { return lensFlare; }
+    public PBRDeferredLighting getPbr() { return pbr; }
     public boolean isInitialized() { return initialized; }
 
     private void syncWithConfig() {
@@ -160,6 +178,15 @@ public class PostProcessingPipeline {
             if (bloom != null) bloom.setEnabled(svs.isFeatureEnabled(ShaderVariantSystem.ShaderFeature.BLOOM));
             if (lensFlare != null) lensFlare.setEnabled(svs.isFeatureEnabled(ShaderVariantSystem.ShaderFeature.LENS_FLARE));
             if (motionBlur != null) motionBlur.setEnabled(svs.isFeatureEnabled(ShaderVariantSystem.ShaderFeature.MOTION_BLUR));
+            if (pbr != null) pbr.setEnabled(svs.isFeatureEnabled(ShaderVariantSystem.ShaderFeature.PBR));
+
+            VulkShadeConfig vcfg = VulkShadeConfig.getInstance();
+            if (bloom != null) bloom.setIntensity(vcfg.getBloomIntensity());
+            float mbs = vcfg.getMotionBlurStrength();
+            if (motionBlur != null && Math.abs(mbs - lastMotionBlurStrength) > 0.001f) {
+                motionBlur.setBlendFactor(mbs);
+                lastMotionBlurStrength = mbs;
+            }
         } catch (Exception e) {
             // ignore if ShaderVariantSystem not available
         }

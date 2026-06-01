@@ -39,7 +39,8 @@ public class VulkShadeConfig {
     private int targetFPS = 0;
     private boolean asyncShaderCompile = true;
     private int ssaoSampleCount = 32;
-    private float bloomIntensity = 0.7f;
+    private float bloomIntensity = 0.4f;
+    private float motionBlurStrength = 0.5f;
     private float shadowBias = 0.005f;
     private int shadowResolution = 1024;
     private int cascadeCount = 2;
@@ -382,6 +383,10 @@ public class VulkShadeConfig {
     public float getBloomIntensity() { return bloomIntensity; }
     public void setBloomIntensity(float intensity) {
         this.bloomIntensity = Math.max(0.0f, Math.min(2.0f, intensity));
+    }
+    public float getMotionBlurStrength() { return motionBlurStrength; }
+    public void setMotionBlurStrength(float strength) {
+        this.motionBlurStrength = Math.max(0.0f, Math.min(0.95f, strength));
     }
     public float getShadowBias() { return shadowBias; }
     public void setShadowBias(float bias) { this.shadowBias = bias; }
