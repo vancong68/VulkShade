@@ -55,6 +55,8 @@ public class Config {
     public boolean featureBloom = true;
     public boolean featurePBR = true;
     public int pbrDebugMode = 0;
+    public float pbrNormalStrength = 0.0f;
+    public float pbrSpecularStrength = 1.0f;
     public boolean featureShadows = true;
     public boolean featureFog = true;
     public boolean featureWaterReflect = true;

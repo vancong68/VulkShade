@@ -26,6 +26,7 @@ layout (location = 5) out vec4 rawVertexColor;
 layout (location = 6) out vec3 cameraRelativePosition;
 layout (location = 7) out vec3 lightColor;
 layout (location = 8) out vec2 rawLightLevels;
+layout (location = 9) flat out uint packedLightRaw;
 
 #define COMPRESSED_VERTEX
 
@@ -86,7 +87,7 @@ vec3 apply_foliage_waving(vec3 pos, uint packedLight, uint wavingFlags) {
         weight = 2.0;
     }
 
-    float skyLight = float(bitfieldExtract(packedLight, 12, 4)) / 15.0;
+    float skyLight = float(bitfieldExtract(packedLight, 8, 4)) / 15.0;
     vec3 worldPos = pos + cameraPosition;
     vec3 waveOffset = wave_move(worldPos.xzy) * weight * (skyLight * skyLight) * (0.03 + (rainStrength * 0.05));
     return pos + waveOffset.xzy;
@@ -110,8 +111,9 @@ void main() {
 
     // Extract raw block/sky light levels (0-1) from packed light for MakeUp lighting
     float blockLight = float(bitfieldExtract(packedLight, 4, 4)) / 15.0;
-    float skyLight = float(bitfieldExtract(packedLight, 12, 4)) / 15.0;
+    float skyLight = float(bitfieldExtract(packedLight, 8, 4)) / 15.0;
     rawLightLevels = vec2(blockLight, skyLight);
 
     texCoord0 = UV0 * UV_INV;
+    packedLightRaw = packedLight;
 }

@@ -7,7 +7,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Nullable;
 
-import static net.vulkanmod.render.texture.pbr.PBRMaterialDetector.BlockMaterialType;
+import static net.vulkanmod.render.texture.pbr.PBRMaterialDetector.MaterialClass;
 
 public final class PBRMaterialRegistry {
     private static final Logger LOGGER = LogManager.getLogger("PBR-MaterialRegistry");
@@ -15,7 +15,7 @@ public final class PBRMaterialRegistry {
     private static PBRMaterialRegistry INSTANCE;
 
     private final Object2ObjectOpenHashMap<String, PBRMaterial> materialCache = new Object2ObjectOpenHashMap<>();
-    private final Object2ObjectOpenHashMap<String, BlockMaterialType> typeCache = new Object2ObjectOpenHashMap<>();
+    private final Object2ObjectOpenHashMap<String, MaterialClass> typeCache = new Object2ObjectOpenHashMap<>();
 
     private PBRMaterialRegistry() {}
 
@@ -36,9 +36,9 @@ public final class PBRMaterialRegistry {
         PBRMaterial cached = materialCache.get(key);
         if (cached != null) return cached;
 
-        BlockMaterialType type = typeCache.get(key);
+        MaterialClass type = typeCache.get(key);
         if (type == null) {
-            type = PBRMaterialDetector.detect(blockTextureLocation, textureImage);
+            type = PBRMaterialDetector.detectMaterialClass(blockTextureLocation, textureImage);
             typeCache.put(key, type);
         }
 

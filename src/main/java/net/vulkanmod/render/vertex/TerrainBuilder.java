@@ -2,6 +2,7 @@ package net.vulkanmod.render.vertex;
 
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.BushBlock;
 import net.minecraft.world.level.block.CropBlock;
@@ -25,12 +26,25 @@ import java.nio.ByteBuffer;
 public class TerrainBuilder {
     private static final Logger LOGGER = Initializer.LOGGER;
     private static final MemoryUtil.MemoryAllocator ALLOCATOR = MemoryUtil.getAllocator(false);
-    public static final int MATERIAL_WAVING = 0x4;
-    public static final int MATERIAL_WAVING_SPECIAL = 0x8;
+    public static final int MATERIAL_DEFAULT = 0x0;
+    public static final int MATERIAL_ROCK = 0x1;
+    public static final int MATERIAL_WOOD = 0x2;
+    public static final int MATERIAL_METAL = 0x3;
+    public static final int MATERIAL_GLASS = 0x4;
+    public static final int MATERIAL_LEAF = 0x5;
+    public static final int MATERIAL_ORGANIC = 0x6;
+    public static final int MATERIAL_SAND = 0x7;
+    public static final int MATERIAL_DIRT = 0x8;
+    public static final int MATERIAL_WATER = 0x9;
+    public static final int MATERIAL_ICE = 0xA;
+    public static final int MATERIAL_EMISSIVE = 0xB;
+
+    public static final int FOLIAGE_WAVING = 0x4;
+    public static final int FOLIAGE_WAVING_SPECIAL = 0x8;
     public static final int FOLIAGE_NONE = 0x0;
-    public static final int FOLIAGE_BASIC = MATERIAL_WAVING;
-    public static final int FOLIAGE_LEAVES = MATERIAL_WAVING_SPECIAL;
-    public static final int FOLIAGE_UPPER = MATERIAL_WAVING | MATERIAL_WAVING_SPECIAL;
+    public static final int FOLIAGE_BASIC = FOLIAGE_WAVING;
+    public static final int FOLIAGE_LEAVES = FOLIAGE_WAVING_SPECIAL;
+    public static final int FOLIAGE_UPPER = FOLIAGE_WAVING | FOLIAGE_WAVING_SPECIAL;
 
     protected long indexBufferPtr;
 
@@ -45,6 +59,7 @@ public class TerrainBuilder {
     private boolean needsSorting;
     private boolean indexOnly;
     private int blockMaterialType;
+    private int blockMaterialId;
 
     protected VertexBuilder vertexBuilder;
 
@@ -173,6 +188,7 @@ public class TerrainBuilder {
     public void clear() {
         this.reset();
         this.blockMaterialType = FOLIAGE_NONE;
+        this.blockMaterialId = MATERIAL_DEFAULT;
 
         for (TerrainBufferBuilder bufferBuilder : this.bufferBuilders) {
             bufferBuilder.clear();
@@ -188,19 +204,19 @@ public class TerrainBuilder {
     }
 
     public void setBlockAttributes(BlockState blockState) {
-        this.blockMaterialType = classifyBlockMaterial(blockState);
+        this.blockMaterialId = classifyBlockMaterial(blockState);
+        this.blockMaterialType = classifyFoliageType(blockState);
     }
 
-    public int getVertexMaterialFlags(float localY) {
-        return switch (this.blockMaterialType) {
-            case FOLIAGE_BASIC -> localY > 0.5f ? FOLIAGE_BASIC : FOLIAGE_NONE;
-            case FOLIAGE_LEAVES -> FOLIAGE_LEAVES;
-            case FOLIAGE_UPPER -> FOLIAGE_UPPER;
-            default -> FOLIAGE_NONE;
-        };
+    public int getVertexMaterialClass() {
+        return this.blockMaterialId;
     }
 
-    private static int classifyBlockMaterial(BlockState blockState) {
+    public int getVertexMaterialFlags(float y) {
+        return this.blockMaterialType;
+    }
+
+    private static int classifyFoliageType(BlockState blockState) {
         if (blockState.is(BlockTags.LEAVES) || blockState.getBlock() instanceof LeavesBlock) {
             return FOLIAGE_LEAVES;
         }
@@ -226,6 +242,86 @@ public class TerrainBuilder {
         }
 
         return FOLIAGE_BASIC;
+    }
+
+    private static int classifyBlockMaterial(BlockState blockState) {
+        var block = blockState.getBlock();
+
+        if (block == Blocks.GLOWSTONE
+            || block == Blocks.SEA_LANTERN
+            || block == Blocks.BEACON
+            || block == Blocks.REDSTONE_LAMP
+            || block == Blocks.SHROOMLIGHT
+            || block == Blocks.JACK_O_LANTERN
+            || block == Blocks.MAGMA_BLOCK) {
+            return MATERIAL_EMISSIVE;
+        }
+
+        if (blockState.is(BlockTags.LEAVES) || block instanceof LeavesBlock) {
+            return MATERIAL_LEAF;
+        }
+
+        if (blockState.is(BlockTags.LOGS) || blockState.is(BlockTags.PLANKS)) {
+            return MATERIAL_WOOD;
+        }
+
+        if (block == Blocks.IRON_BLOCK
+            || block == Blocks.GOLD_BLOCK
+            || block == Blocks.COPPER_BLOCK
+            || block == Blocks.NETHERITE_BLOCK
+            || blockState.is(BlockTags.ANVIL)) {
+            return MATERIAL_METAL;
+        }
+
+        if (block == Blocks.GLASS || block == Blocks.WHITE_STAINED_GLASS
+            || block == Blocks.ORANGE_STAINED_GLASS || block == Blocks.MAGENTA_STAINED_GLASS
+            || block == Blocks.LIGHT_BLUE_STAINED_GLASS || block == Blocks.YELLOW_STAINED_GLASS
+            || block == Blocks.LIME_STAINED_GLASS || block == Blocks.PINK_STAINED_GLASS
+            || block == Blocks.GRAY_STAINED_GLASS || block == Blocks.LIGHT_GRAY_STAINED_GLASS
+            || block == Blocks.CYAN_STAINED_GLASS || block == Blocks.PURPLE_STAINED_GLASS
+            || block == Blocks.BLUE_STAINED_GLASS || block == Blocks.BROWN_STAINED_GLASS
+            || block == Blocks.GREEN_STAINED_GLASS || block == Blocks.RED_STAINED_GLASS
+            || block == Blocks.BLACK_STAINED_GLASS || block == Blocks.TINTED_GLASS
+            || block == Blocks.GLASS_PANE || block == Blocks.WHITE_STAINED_GLASS_PANE
+            || block == Blocks.ORANGE_STAINED_GLASS_PANE || block == Blocks.MAGENTA_STAINED_GLASS_PANE
+            || block == Blocks.LIGHT_BLUE_STAINED_GLASS_PANE || block == Blocks.YELLOW_STAINED_GLASS_PANE
+            || block == Blocks.LIME_STAINED_GLASS_PANE || block == Blocks.PINK_STAINED_GLASS_PANE
+            || block == Blocks.GRAY_STAINED_GLASS_PANE || block == Blocks.LIGHT_GRAY_STAINED_GLASS_PANE
+            || block == Blocks.CYAN_STAINED_GLASS_PANE || block == Blocks.PURPLE_STAINED_GLASS_PANE
+            || block == Blocks.BLUE_STAINED_GLASS_PANE || block == Blocks.BROWN_STAINED_GLASS_PANE
+            || block == Blocks.GREEN_STAINED_GLASS_PANE || block == Blocks.RED_STAINED_GLASS_PANE
+            || block == Blocks.BLACK_STAINED_GLASS_PANE) {
+            return MATERIAL_GLASS;
+        }
+
+        if (blockState.is(BlockTags.SAND)) {
+            return MATERIAL_SAND;
+        }
+
+        if (blockState.is(BlockTags.DIRT)
+            || block == Blocks.SNOW_BLOCK || block == Blocks.SNOW) {
+            return MATERIAL_DIRT;
+        }
+
+        if (block == Blocks.ICE || block == Blocks.PACKED_ICE || block == Blocks.BLUE_ICE) {
+            return MATERIAL_ICE;
+        }
+
+        if (block == Blocks.WATER || blockState.getFluidState().isSource()
+            || block == Blocks.BUBBLE_COLUMN) {
+            return MATERIAL_WATER;
+        }
+
+        if (block instanceof BushBlock
+            || block instanceof TallGrassBlock
+            || block instanceof TallFlowerBlock
+            || block instanceof CropBlock
+            || block instanceof SaplingBlock
+            || block instanceof ShortDryGrassBlock) {
+            return MATERIAL_ORGANIC;
+        }
+
+        return MATERIAL_ROCK;
     }
 
     public record DrawState(int vertexSize, int indexCount, VertexFormat.IndexType indexType,

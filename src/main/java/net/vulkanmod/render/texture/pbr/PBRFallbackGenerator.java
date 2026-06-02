@@ -3,67 +3,49 @@ package net.vulkanmod.render.texture.pbr;
 import com.mojang.blaze3d.platform.NativeImage;
 
 import static net.vulkanmod.render.texture.pbr.PBRMaterialDetector.BlockMaterialType;
+import static net.vulkanmod.render.texture.pbr.PBRMaterialDetector.MaterialClass;
 
 public final class PBRFallbackGenerator {
 
     private PBRFallbackGenerator() {}
 
-    public static PBRMaterial generate(BlockMaterialType type) {
+    public static PBRMaterial generate(MaterialClass type) {
         return switch (type) {
-            case STONE     -> new PBRMaterial(0.85f, 0.0f,  0.04f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case DIRT      -> new PBRMaterial(0.95f, 0.0f,  0.04f, 0.9f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case WOOD      -> new PBRMaterial(0.68f, 0.0f,  0.04f, 0.8f, 0.0f, 0.0f, 0.0f, 0.2f, 0);
-            case METAL     -> new PBRMaterial(0.20f, 1.0f,  0.50f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 255);
-            case GLASS     -> new PBRMaterial(0.05f, 0.0f,  0.04f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case WATER     -> new PBRMaterial(0.01f, 0.0f,  0.04f, 1.0f, 0.0f, 0.0f, 0.5f, 0.0f, 0);
-            case LEAVES    -> new PBRMaterial(0.75f, 0.0f,  0.04f, 0.7f, 0.0f, 0.0f, 0.3f, 0.0f, 0);
-            case SAND      -> new PBRMaterial(0.95f, 0.0f,  0.04f, 0.9f, 0.0f, 0.0f, 0.0f, 0.5f, 0);
-            case GRAVEL    -> new PBRMaterial(0.95f, 0.0f,  0.04f, 0.9f, 0.0f, 0.0f, 0.0f, 0.5f, 0);
-            case SNOW      -> new PBRMaterial(0.95f, 0.0f,  0.04f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case ICE       -> new PBRMaterial(0.00f, 0.0f,  0.04f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case WOOL      -> new PBRMaterial(0.95f, 0.0f,  0.04f, 1.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0);
-            case TERRACOTTA -> new PBRMaterial(0.90f, 0.0f, 0.04f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case PLANT     -> new PBRMaterial(0.75f, 0.0f,  0.04f, 0.8f, 0.0f, 0.0f, 0.3f, 0.0f, 0);
-            case ORE       -> new PBRMaterial(0.70f, 0.5f,  0.08f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 250);
-            case GEM       -> new PBRMaterial(0.10f, 0.0f,  0.06f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case BONE      -> new PBRMaterial(0.80f, 0.0f,  0.04f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case NETHER    -> new PBRMaterial(0.85f, 0.0f,  0.04f, 0.8f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case ENDSTONE  -> new PBRMaterial(0.95f, 0.0f,  0.04f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case MUD       -> new PBRMaterial(0.95f, 0.0f,  0.04f, 0.7f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case CONCRETE  -> new PBRMaterial(0.80f, 0.0f,  0.04f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case CALCITE   -> new PBRMaterial(0.30f, 0.0f,  0.04f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case DRIPSTONE -> new PBRMaterial(0.85f, 0.0f,  0.04f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case DEEPSLATE -> new PBRMaterial(0.90f, 0.0f,  0.04f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case OBSIDIAN  -> new PBRMaterial(0.10f, 0.0f,  0.04f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case ANVIL     -> new PBRMaterial(0.40f, 0.8f,  0.30f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 235);
-            case HONEY     -> new PBRMaterial(0.30f, 0.0f,  0.04f, 1.0f, 0.0f, 0.0f, 0.0f, 0.3f, 0);
-            case SLIME     -> new PBRMaterial(0.40f, 0.0f,  0.04f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case SPONGE    -> new PBRMaterial(0.95f, 0.0f,  0.04f, 0.6f, 0.0f, 0.0f, 0.0f, 0.8f, 0);
-            case MUSHROOM  -> new PBRMaterial(0.85f, 0.0f,  0.04f, 0.9f, 0.0f, 0.0f, 0.1f, 0.0f, 0);
-            case BASALT    -> new PBRMaterial(0.80f, 0.0f,  0.04f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case PACKED_ICE -> new PBRMaterial(0.05f, 0.0f, 0.04f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case TINTED_GLASS -> new PBRMaterial(0.05f, 0.0f, 0.04f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-            case COPPER    -> new PBRMaterial(0.40f, 0.9f,  0.45f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 234);
-            case UNKNOWN   -> PBRMaterial.DEFAULT.copy();
+            case ROCK -> new PBRMaterial(0.85f, 0.0f, 0.04f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
+            case DIRT -> new PBRMaterial(0.95f, 0.0f, 0.04f, 0.92f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
+            case WOOD -> new PBRMaterial(0.70f, 0.0f, 0.04f, 0.85f, 0.0f, 0.0f, 0.0f, 0.18f, 0);
+            case METAL -> new PBRMaterial(0.20f, 1.0f, 0.55f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 255);
+            case GLASS -> new PBRMaterial(0.08f, 0.0f, 0.10f, 0.95f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
+            case WATER -> new PBRMaterial(0.12f, 0.0f, 0.04f, 0.98f, 0.0f, 0.5f, 0.0f, 0.0f, 0);
+            case LEAF -> new PBRMaterial(0.85f, 0.0f, 0.04f, 0.70f, 0.0f, 0.0f, 0.18f, 0.0f, 0);
+            case ORGANIC -> new PBRMaterial(0.80f, 0.0f, 0.04f, 0.78f, 0.0f, 0.0f, 0.15f, 0.0f, 0);
+            case SAND -> new PBRMaterial(0.92f, 0.0f, 0.04f, 0.90f, 0.0f, 0.0f, 0.0f, 0.45f, 0);
+            case ICE -> new PBRMaterial(0.05f, 0.0f, 0.10f, 0.96f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
+            case EMISSIVE -> new PBRMaterial(0.65f, 0.0f, 0.04f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0);
+            case DEFAULT -> PBRMaterial.DEFAULT.copy();
         };
     }
 
-    public static PBRMaterial enrichFromTexture(PBRMaterial material, NativeImage texture, BlockMaterialType type) {
+    public static PBRMaterial generate(BlockMaterialType type) {
+        return generate(PBRMaterialDetector.toMaterialClass(type));
+    }
+
+    public static PBRMaterial enrichFromTexture(PBRMaterial material, NativeImage texture, MaterialClass type) {
         PBRMaterial result = material.copy();
         float brightness = computeAverageBrightness(texture);
         float contrast = computeContrast(texture);
 
-        if (type == BlockMaterialType.UNKNOWN) {
+        if (type == MaterialClass.DEFAULT) {
             result.roughness = clamp(0.85f - contrast * 0.45f + (0.5f - brightness) * 0.15f, 0.06f, 0.95f);
             result.ao = clamp(0.65f + (1.0f - contrast) * 0.18f, 0.35f, 1.0f);
             if (brightness < 0.35f) result.metallic = clamp(result.metallic + 0.1f, 0.0f, 1.0f);
         } else {
-            if (type == BlockMaterialType.WOOD || type == BlockMaterialType.PLANT || type == BlockMaterialType.LEAVES) {
+            if (type == MaterialClass.WOOD || type == MaterialClass.ORGANIC || type == MaterialClass.LEAF) {
                 result.roughness = clamp(result.roughness + 0.06f - contrast * 0.1f, 0.25f, 0.99f);
                 result.ao = clamp(result.ao + 0.05f, 0.35f, 1.0f);
-            } else if (type == BlockMaterialType.METAL || type == BlockMaterialType.COPPER || type == BlockMaterialType.ORE) {
+            } else if (type == MaterialClass.METAL) {
                 result.roughness = clamp(result.roughness - contrast * 0.05f, 0.08f, 0.85f);
-            } else if (type == BlockMaterialType.GLASS || type == BlockMaterialType.ICE) {
+            } else if (type == MaterialClass.GLASS || type == MaterialClass.ICE || type == MaterialClass.WATER) {
                 result.roughness = clamp(result.roughness * 0.55f, 0.01f, 0.25f);
             }
         }

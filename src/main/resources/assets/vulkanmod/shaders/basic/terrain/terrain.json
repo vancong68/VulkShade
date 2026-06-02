@@ -5,9 +5,7 @@
         { "name": "Sampler0" },
         { "name": "Sampler2" },
         { "name": "Sampler5" },
-        { "name": "Sampler6" },
-        { "name": "Sampler7" },
-        { "name": "Sampler8" }
+        { "name": "Sampler6" }
     ],
     "UBOs": [
         { "type":  "vertex", "binding": 0, "fields": [
@@ -40,11 +38,9 @@
             { "name": "terrainLightingQuality", "type": "int", "count": 1, "values": [ 0 ] },
             { "name": "blockEmissiveTexturesEnabled", "type": "int", "count": 1, "values": [ 1 ] },
             { "name": "pbrEnabled", "type": "int", "count": 1, "values": [ 0 ] },
-            { "name": "pbrFallbackRoughness", "type": "float", "count": 1, "values": [ 0.8 ] },
-            { "name": "pbrFallbackMetallic", "type": "float", "count": 1, "values": [ 0.0 ] },
-            { "name": "pbrFallbackF0", "type": "float", "count": 1, "values": [ 0.04 ] },
-            { "name": "pbrFallbackAO", "type": "float", "count": 1, "values": [ 1.0 ] },
-            { "name": "pbrFallbackEmissive", "type": "float", "count": 1, "values": [ 0.0 ] }
+            { "name": "pbrDebugMode", "type": "int", "count": 1, "values": [ 0 ] },
+            { "name": "pbrNormalStrength", "type": "float", "count": 1, "values": [ 0.0 ] },
+            { "name": "pbrSpecularStrength", "type": "float", "count": 1, "values": [ 1.0 ] }
         ] }
     ],
     "PushConstants": [

@@ -14,6 +14,31 @@ public final class PBRMaterialDetector {
         TINTED_GLASS, COPPER, UNKNOWN
     }
 
+    public enum MaterialClass {
+        DEFAULT(0),
+        ROCK(1),
+        WOOD(2),
+        METAL(3),
+        GLASS(4),
+        LEAF(5),
+        ORGANIC(6),
+        SAND(7),
+        DIRT(8),
+        WATER(9),
+        ICE(10),
+        EMISSIVE(11);
+
+        private final int id;
+
+        MaterialClass(int id) {
+            this.id = id;
+        }
+
+        public int id() {
+            return this.id;
+        }
+    }
+
     private PBRMaterialDetector() {}
 
     public static BlockMaterialType detect(ResourceLocation location) {
@@ -27,6 +52,18 @@ public final class PBRMaterialDetector {
             return type;
         }
         return inferFromTexture(textureImage);
+    }
+
+    public static MaterialClass detectMaterialClass(ResourceLocation location) {
+        return toMaterialClass(detect(location));
+    }
+
+    public static MaterialClass detectMaterialClass(ResourceLocation location, @Nullable NativeImage textureImage) {
+        return toMaterialClass(detect(location, textureImage));
+    }
+
+    public static MaterialClass detectMaterialClass(String namespace, String path) {
+        return toMaterialClass(detect(namespace, path));
     }
 
     public static BlockMaterialType detect(String namespace, String path) {
@@ -128,6 +165,24 @@ public final class PBRMaterialDetector {
 
     private static float clamp(float value, float min, float max) {
         return value < min ? min : value > max ? max : value;
+    }
+
+    public static MaterialClass toMaterialClass(BlockMaterialType type) {
+        return switch (type) {
+            case WOOD -> MaterialClass.WOOD;
+            case LEAVES -> MaterialClass.LEAF;
+            case PLANT, MUSHROOM -> MaterialClass.ORGANIC;
+            case SAND, GRAVEL -> MaterialClass.SAND;
+            case DIRT, MUD, TERRACOTTA, SNOW, ENDSTONE -> MaterialClass.DIRT;
+            case WATER -> MaterialClass.WATER;
+            case ICE, PACKED_ICE -> MaterialClass.ICE;
+            case GLASS, TINTED_GLASS -> MaterialClass.GLASS;
+            case METAL, COPPER, ORE, GEM, ANVIL -> MaterialClass.METAL;
+            case BONE, NETHER, CONCRETE, CALCITE, DRIPSTONE, DEEPSLATE, OBSIDIAN, BASALT -> MaterialClass.ROCK;
+            case HONEY, SLIME, SPONGE -> MaterialClass.ORGANIC;
+            case UNKNOWN -> MaterialClass.DEFAULT;
+            default -> MaterialClass.ROCK;
+        };
     }
 
     private static BlockMaterialType detectFromPath(String path) {

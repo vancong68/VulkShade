@@ -16,15 +16,18 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.vulkanmod.mixin.texture.emissive.TextureAtlasAccessor;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 
 public final class PBRTextureManager {
+    /**
+     * Integrated material atlas generator.
+     *
+     * This manager no longer relies on external PBR texture pack files.
+     * Specular and normal atlases are generated from vanilla/mod texture data.
+     */
     public static final PBRTextureManager INSTANCE = new PBRTextureManager();
 
     private final Map<ResourceLocation, AbstractTexture> specularCache = new HashMap<>();
@@ -35,7 +38,6 @@ public final class PBRTextureManager {
     private boolean dirty = true;
 
     private final PBRMaterialRegistry materialRegistry = PBRMaterialRegistry.getInstance();
-    private final PBRResourceScanner resourceScanner = PBRResourceScanner.INSTANCE;
 
     private PBRTextureManager() {}
 
@@ -90,10 +92,6 @@ public final class PBRTextureManager {
         }
 
         if (this.dirty) {
-            ResourceManager rm = Minecraft.getInstance().getResourceManager();
-            if (rm != null) {
-                this.resourceScanner.refresh(rm);
-            }
             this.dirty = false;
         }
     }
@@ -115,27 +113,7 @@ public final class PBRTextureManager {
 
     private @Nullable AbstractTexture loadSimplePBRTexture(ResourceLocation baseLocation,
                                                             ResourceManager rm, boolean isNormal) {
-        String[] suffixes = isNormal ? this.resourceScanner.getNormalSuffixes() : this.resourceScanner.getSpecularSuffixes();
-        ResourceLocation texLocation = findExistingPBRTexture(baseLocation, rm, suffixes);
-        if (texLocation != null) {
-            SimpleTexture texture = new SimpleTexture(texLocation);
-            try {
-                texture.apply(texture.loadContents(rm));
-                return texture;
-            } catch (IOException e) {
-                texture.close();
-            }
-        }
         return generateSimpleFallbackTexture(baseLocation, rm, isNormal);
-    }
-
-    private @Nullable ResourceLocation findExistingPBRTexture(ResourceLocation baseLocation,
-                                                               ResourceManager rm, String[] suffixes) {
-        for (String suffix : suffixes) {
-            ResourceLocation loc = appendSuffix(baseLocation, suffix);
-            if (resourceExists(rm, loc)) return loc;
-        }
-        return null;
     }
 
     private AbstractTexture generateSimpleFallbackTexture(ResourceLocation baseLocation, ResourceManager rm, boolean isNormal) {
@@ -173,13 +151,9 @@ public final class PBRTextureManager {
         NativeImage atlasImage = new NativeImage(NativeImage.Format.RGBA, atlasWidth, atlasHeight, false);
         atlasImage.fillRect(0, 0, atlasWidth, atlasHeight, 0x00000000);
 
-        String[] suffixes = isNormal ? this.resourceScanner.getNormalSuffixes() : this.resourceScanner.getSpecularSuffixes();
         for (TextureAtlasSprite sprite : accessor.getTexturesByName().values()) {
             if (sprite == atlas.missingSprite()) continue;
-            NativeImage frame = loadSpritePBRFrame(accessor, sprite, rm, suffixes, isNormal);
-            if (frame == null) {
-                frame = generateFallbackFrame(sprite, rm, isNormal);
-            }
+            NativeImage frame = generateFallbackFrame(sprite, rm, isNormal);
             copyIntoAtlas(atlasImage, frame, sprite.getX(), sprite.getY());
             frame.close();
         }
@@ -225,47 +199,6 @@ public final class PBRTextureManager {
         return frame;
     }
 
-    private @Nullable NativeImage loadSpritePBRFrame(TextureAtlasAccessor accessor, TextureAtlasSprite sprite,
-                                                       ResourceManager rm, String[] suffixes, boolean isNormal) {
-        ResourceLocation spriteLocation = sprite.contents().name();
-        ResourceLocation imageLocation = getTextureFileLocation(spriteLocation);
-
-        ResourceLocation texLocation = findExistingPBRTexture(imageLocation, rm, suffixes);
-        if (texLocation == null) return null;
-
-        Resource resource = rm.getResource(texLocation).orElse(null);
-        if (resource == null) return null;
-
-        try (InputStream stream = resource.open()) {
-            NativeImage image = NativeImage.read(stream);
-            Optional<AnimationMetadataSection> animMeta = resource.metadata()
-                .getSection(AnimationMetadataSection.TYPE);
-            FrameSize frameSize = animMeta
-                .map(meta -> meta.calculateFrameSize(image.getWidth(), image.getHeight()))
-                .orElseGet(() -> new FrameSize(image.getWidth(), image.getHeight()));
-
-            int frameWidth = frameSize.width();
-            int frameHeight = frameSize.height();
-            int targetWidth = sprite.contents().width();
-            int targetHeight = sprite.contents().height();
-
-            NativeImage frame = copyFrame(image, frameWidth, frameHeight);
-            image.close();
-
-            if (frameWidth != targetWidth || frameHeight != targetHeight) {
-                NativeImage scaled = new NativeImage(NativeImage.Format.RGBA, targetWidth, targetHeight, false);
-                frame.resizeSubRectTo(0, 0, frameWidth, frameHeight, scaled);
-                frame.close();
-                frame = scaled;
-            }
-
-            return frame;
-        } catch (FileNotFoundException ignored) {
-            return null;
-        } catch (IOException ignored) {
-            return null;
-        }
-    }
 
     private @Nullable NativeImage loadBaseTextureImage(ResourceManager rm, ResourceLocation textureLocation) {
         ResourceLocation imageLocation = getTextureFileLocation(textureLocation);
@@ -299,9 +232,33 @@ public final class PBRTextureManager {
     }
 
     private static void copyIntoAtlas(NativeImage atlas, NativeImage frame, int dstX, int dstY) {
-        for (int y = 0; y < frame.getHeight(); ++y)
-            for (int x = 0; x < frame.getWidth(); ++x)
-                atlas.setPixel(dstX + x, dstY + y, frame.getPixel(x, y));
+        int atlasW = atlas.getWidth();
+        int atlasH = atlas.getHeight();
+        int frameW = frame.getWidth();
+        int frameH = frame.getHeight();
+
+        int srcStartX = 0;
+        int srcStartY = 0;
+        int dstStartX = dstX;
+        int dstStartY = dstY;
+
+        if (dstStartX < 0) { srcStartX = -dstStartX; dstStartX = 0; }
+        if (dstStartY < 0) { srcStartY = -dstStartY; dstStartY = 0; }
+
+        int copyW = Math.min(frameW - srcStartX, atlasW - dstStartX);
+        int copyH = Math.min(frameH - srcStartY, atlasH - dstStartY);
+
+        if (copyW <= 0 || copyH <= 0) return;
+
+        for (int y = 0; y < copyH; ++y) {
+            int srcY = srcStartY + y;
+            int dstYPos = dstStartY + y;
+            for (int x = 0; x < copyW; ++x) {
+                int srcX = srcStartX + x;
+                int dstXPos = dstStartX + x;
+                atlas.setPixel(dstXPos, dstYPos, frame.getPixel(srcX, srcY));
+            }
+        }
     }
 
     private void clearCache() {
@@ -319,16 +276,4 @@ public final class PBRTextureManager {
     private DynamicTexture getDefaultSpecularTexture() { ensureReady(); return this.defaultSpecularTexture; }
     private DynamicTexture getDefaultNormalTexture() { ensureReady(); return this.defaultNormalTexture; }
 
-    private static boolean resourceExists(ResourceManager rm, ResourceLocation loc) {
-        return rm.getResource(loc).isPresent();
-    }
-
-    static ResourceLocation appendSuffix(ResourceLocation location, String suffix) {
-        String path = location.getPath();
-        int extIdx = path.lastIndexOf('.');
-        String updated = extIdx >= 0
-            ? path.substring(0, extIdx) + suffix + path.substring(extIdx)
-            : path + suffix;
-        return ResourceLocation.fromNamespaceAndPath(location.getNamespace(), updated.toLowerCase(Locale.ROOT));
-    }
 }

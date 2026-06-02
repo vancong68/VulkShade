@@ -6,7 +6,6 @@ import net.minecraft.server.packs.resources.PreparableReloadListener;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.render.texture.SpriteUpdateUtil;
 import net.vulkanmod.render.texture.emissive.EmissiveTextureManager;
-import net.vulkanmod.render.texture.pbr.PBRTextureManager;
 import net.vulkanmod.vulkan.Renderer;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -40,7 +39,6 @@ public abstract class MTextureManager {
         }
 
         EmissiveTextureManager.INSTANCE.tick();
-        PBRTextureManager.INSTANCE.tick();
         SpriteUpdateUtil.transitionLayouts();
     }
 
@@ -49,12 +47,10 @@ public abstract class MTextureManager {
                           PreparableReloadListener.PreparationBarrier barrier, Executor applyExecutor,
                           CallbackInfoReturnable<CompletableFuture<Void>> cir) {
         EmissiveTextureManager.INSTANCE.markDirty();
-        PBRTextureManager.INSTANCE.markDirty();
     }
 
     @Inject(method = "close", at = @At("TAIL"))
     private void onClose(CallbackInfo ci) {
         EmissiveTextureManager.INSTANCE.close();
-        PBRTextureManager.INSTANCE.close();
     }
 }

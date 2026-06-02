@@ -136,7 +136,9 @@ public class BlockRenderer extends AbstractBlockRenderContext {
 
             int color = ColorUtil.ARGB.toRGBA(quadColor);
 
-            final int light = lights[idx];
+            final int materialClass = terrainBuilder.getVertexMaterialClass();
+            final int rawLight = lights[idx];
+            final int light = (rawLight & 0x000F0000) | ((rawLight & 0xF) << 4) | materialClass;
             final int waving = terrainBuilder.getVertexMaterialFlags(quad.getY(idx));
             final float u = quad.getU(idx);
             final float v = quad.getV(idx);

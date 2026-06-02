@@ -36,8 +36,7 @@ import org.joml.Vector3f;
 
 public class FluidRenderer implements FluidRendering.DefaultRenderer {
     private static final float MAX_FLUID_HEIGHT = 0.8888889F;
-    private static final int MATERIAL_WATER = 0x1;
-    private static final int MATERIAL_WATER_SURFACE = 0x2;
+    private static final int MATERIAL_WATER = 0x9;
 
     private final BlockPos.MutableBlockPos mBlockPos = new BlockPos.MutableBlockPos();
 
@@ -120,7 +119,7 @@ public class FluidRenderer implements FluidRendering.DefaultRenderer {
         BlockAndTintGetter region = this.resources.getRegion();
         final boolean isWater = fluidState.is(FluidTags.WATER);
         final int fluidMaterialFlags = isWater ? MATERIAL_WATER : 0;
-        final int fluidSurfaceFlags = fluidMaterialFlags | MATERIAL_WATER_SURFACE;
+        final int fluidSurfaceFlags = fluidMaterialFlags;
 
         int color = handler.getFluidColor(region, blockPos, fluidState);
         TextureAtlasSprite[] sprites = handler.getFluidSprites(region, blockPos, fluidState);

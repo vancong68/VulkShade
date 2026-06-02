@@ -472,19 +472,37 @@ public abstract class Options {
                                          () -> config.featurePBR)
                                 .setTooltip(Component.translatable("vulkanmod.options.feature.pbr.tooltip")),
                         new RangeOption(Component.translatable("vulkshade.effects.pbrDebug"),
-                                        0, 6, 1,
+                                        0, 12, 1,
                                         value -> Component.translatable(switch (value) {
-                                            case 1 -> "vulkshade.effects.pbrDebug.roughness";
-                                            case 2 -> "vulkshade.effects.pbrDebug.metallic";
-                                            case 3 -> "vulkshade.effects.pbrDebug.f0";
-                                            case 4 -> "vulkshade.effects.pbrDebug.ao";
-                                            case 5 -> "vulkshade.effects.pbrDebug.emissive";
-                                            case 6 -> "vulkshade.effects.pbrDebug.albedo";
+                                            case 1 -> "vulkshade.effects.pbrDebug.blockLight";
+                                            case 2 -> "vulkshade.effects.pbrDebug.skyLight";
+                                            case 3 -> "vulkshade.effects.pbrDebug.ao";
+                                            case 4 -> "vulkshade.effects.pbrDebug.shadowFactor";
+                                            case 5 -> "vulkshade.effects.pbrDebug.roughness";
+                                            case 6 -> "vulkshade.effects.pbrDebug.metallic";
+                                            case 7 -> "vulkshade.effects.pbrDebug.materialClass";
+                                            case 8 -> "vulkshade.effects.pbrDebug.specular";
+                                            case 9 -> "vulkshade.effects.pbrDebug.finalBrdf";
+                                            case 10 -> "vulkshade.effects.pbrDebug.albedo";
+                                            case 11 -> "vulkshade.effects.pbrDebug.NdotL";
+                                            case 12 -> "vulkshade.effects.pbrDebug.rawPackedBits";
                                             default -> "vulkshade.effects.pbrDebug.off";
                                         }),
                                         value -> config.pbrDebugMode = value,
                                         () -> config.pbrDebugMode)
                                 .setTooltip(Component.translatable("vulkshade.effects.pbrDebug.tooltip")),
+                        new RangeOption(Component.translatable("vulkshade.effects.pbrNormalStrength"),
+                                        0, 100, 5,
+                                        value -> Component.nullToEmpty(value + "%"),
+                                        value -> config.pbrNormalStrength = value / 100.0f,
+                                        () -> (int)(config.pbrNormalStrength * 100))
+                                .setTooltip(Component.translatable("vulkshade.effects.pbrNormalStrength.tooltip")),
+                        new RangeOption(Component.translatable("vulkshade.effects.pbrSpecularStrength"),
+                                        0, 300, 10,
+                                        value -> Component.nullToEmpty(value + "%"),
+                                        value -> config.pbrSpecularStrength = value / 100.0f,
+                                        () -> (int)(config.pbrSpecularStrength * 100))
+                                .setTooltip(Component.translatable("vulkshade.effects.pbrSpecularStrength.tooltip")),
                         new SwitchOption(Component.translatable("vulkanmod.options.feature.fog"),
                                          value -> vcfg.setFogEnabled(value),
                                          () -> config.featureFog)
