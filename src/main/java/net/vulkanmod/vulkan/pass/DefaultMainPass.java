@@ -451,10 +451,14 @@ public class DefaultMainPass implements MainPass {
         builder.getDepthAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE);
         this.sceneAuxRenderPass = builder.build();
 
-        builder = RenderPass.builder(this.fsrUpscaleFramebuffer);
-        builder.getColorAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE);
-        builder.getColorAttachmentInfo().setFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        this.fsrUpscaleRenderPass = builder.build();
+        if (this.fsrUpscaleFramebuffer != null) {
+            builder = RenderPass.builder(this.fsrUpscaleFramebuffer);
+            builder.getColorAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE);
+            builder.getColorAttachmentInfo().setFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            this.fsrUpscaleRenderPass = builder.build();
+        } else {
+            this.fsrUpscaleRenderPass = null;
+        }
 
         builder = RenderPass.builder(this.tonemapFramebuffer);
         builder.getColorAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE);

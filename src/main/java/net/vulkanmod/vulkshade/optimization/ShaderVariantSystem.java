@@ -56,7 +56,12 @@ public class ShaderVariantSystem {
         PBR(1 << 2),
         SHADOW(1 << 3),
         FOG(1 << 4),
-
+        WATER_REFLECT(1 << 5),
+        EMISSIVE(1 << 6),
+        VOLUMETRIC(1 << 7),
+        VOX_LOD(1 << 8),
+        MOTION_BLUR(1 << 9),
+        LENS_FLARE(1 << 10);
 
         final int bit;
         ShaderFeature(int bit) { this.bit = bit; }

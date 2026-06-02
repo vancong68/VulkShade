@@ -10,6 +10,7 @@ import net.vulkanmod.vulkan.texture.VulkanImage;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 
+import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK11.VK_ATTACHMENT_LOAD_OP_LOAD;
 import static org.lwjgl.vulkan.VK11.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
@@ -126,12 +127,47 @@ public class VkGlFramebuffer {
 
     public static void glBlitFramebuffer(int srcX0, int srcY0, int srcX1, int srcY1, int dstX0, int dstY0, int dstX1,
                                          int dstY1, int mask, int filter) {
-        // TODO: add missing parameters
-        ImageUtil.blitFramebuffer(boundFramebuffer.colorAttachment, srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1);
+        VulkanImage srcColor = null;
+        VulkanImage srcDepth = null;
+        VulkanImage dstColor = null;
+        VulkanImage dstDepth = null;
+
+        if ((mask & GL30.GL_COLOR_BUFFER_BIT) != 0) {
+            srcColor = readFramebuffer != null ? readFramebuffer.colorAttachment : Renderer.getInstance().getMainPass().getColorAttachmentImage();
+            dstColor = boundFramebuffer != null ? boundFramebuffer.colorAttachment : Renderer.getInstance().getMainPass().getColorAttachmentImage();
+        }
+
+        if ((mask & GL30.GL_DEPTH_BUFFER_BIT) != 0 || (mask & GL30.GL_STENCIL_BUFFER_BIT) != 0) {
+            srcDepth = readFramebuffer != null ? readFramebuffer.depthAttachment : Renderer.getInstance().getMainPass().getDepthAttachmentImage();
+            dstDepth = boundFramebuffer != null ? boundFramebuffer.depthAttachment : Renderer.getInstance().getMainPass().getDepthAttachmentImage();
+        }
+
+        int vkFilter = filter == GL11.GL_NEAREST ? VK_FILTER_NEAREST : VK_FILTER_LINEAR;
+
+        ImageUtil.blitFramebuffer(srcColor, dstColor, srcDepth, dstDepth, srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, vkFilter);
     }
 
     public static int glCheckFramebufferStatus(int target) {
-        //TODO
+        if (target != GL30.GL_FRAMEBUFFER && target != GL30.GL_DRAW_FRAMEBUFFER && target != GL30.GL_READ_FRAMEBUFFER) {
+            return GL30.GL_FRAMEBUFFER_UNSUPPORTED;
+        }
+
+        VkGlFramebuffer glFramebuffer = target == GL30.GL_READ_FRAMEBUFFER ? readFramebuffer : boundFramebuffer;
+
+        if (glFramebuffer == null) {
+            return GL30.GL_FRAMEBUFFER_COMPLETE;
+        }
+
+        if (glFramebuffer.colorAttachment == null && glFramebuffer.depthAttachment == null) {
+            return GL30.GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT;
+        }
+
+        if (glFramebuffer.colorAttachment != null && glFramebuffer.depthAttachment != null) {
+            if (glFramebuffer.colorAttachment.width != glFramebuffer.depthAttachment.width || glFramebuffer.colorAttachment.height != glFramebuffer.depthAttachment.height) {
+                return GL30.GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT;
+            }
+        }
+
         return GL30.GL_FRAMEBUFFER_COMPLETE;
     }
 

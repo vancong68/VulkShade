@@ -1,6 +1,8 @@
 package net.vulkanmod.render.texture.pbr;
 
+import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.Nullable;
 
 public final class PBRMaterialDetector {
 
@@ -19,8 +21,113 @@ public final class PBRMaterialDetector {
         return detectFromPath(path);
     }
 
+    public static BlockMaterialType detect(ResourceLocation location, @Nullable NativeImage textureImage) {
+        BlockMaterialType type = detect(location);
+        if (type != BlockMaterialType.UNKNOWN || textureImage == null) {
+            return type;
+        }
+        return inferFromTexture(textureImage);
+    }
+
     public static BlockMaterialType detect(String namespace, String path) {
         return detectFromPath(path.toLowerCase());
+    }
+
+    public static BlockMaterialType inferFromTexture(NativeImage image) {
+        float[] hsl = computeAverageHSL(image);
+        float luminance = hsl[2];
+        float saturation = hsl[1];
+        float hue = hsl[0];
+        float contrast = computeContrast(image);
+
+        if (luminance > 0.85f && saturation < 0.12f) return BlockMaterialType.ICE;
+        if (luminance > 0.72f && saturation < 0.20f) return BlockMaterialType.SNOW;
+        if (contrast > 0.28f && luminance < 0.35f) return BlockMaterialType.ORE;
+        if (saturation < 0.18f && luminance < 0.60f) return BlockMaterialType.DIRT;
+        if (hue >= 0.05f && hue <= 0.16f && saturation > 0.22f) return BlockMaterialType.SAND;
+        if (hue >= 0.06f && hue <= 0.16f && saturation > 0.35f && luminance > 0.45f) return BlockMaterialType.WOOD;
+        if (hue >= 0.18f && hue <= 0.45f && saturation > 0.25f) return BlockMaterialType.PLANT;
+        if (saturation > 0.40f && luminance > 0.35f) return BlockMaterialType.LEAVES;
+        if (contrast > 0.30f && luminance > 0.65f) return BlockMaterialType.CONCRETE;
+        if (saturation < 0.20f && luminance > 0.45f) return BlockMaterialType.STONE;
+        return BlockMaterialType.UNKNOWN;
+    }
+
+    private static float[] computeAverageHSL(NativeImage image) {
+        long redSum = 0;
+        long greenSum = 0;
+        long blueSum = 0;
+        int width = image.getWidth();
+        int height = image.getHeight();
+        int total = width * height;
+
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                int color = image.getPixel(x, y);
+                redSum += (color >> 0) & 0xFF;
+                greenSum += (color >> 8) & 0xFF;
+                blueSum += (color >> 16) & 0xFF;
+            }
+        }
+
+        float r = redSum / (float)(total * 255);
+        float g = greenSum / (float)(total * 255);
+        float b = blueSum / (float)(total * 255);
+        return rgbToHsl(r, g, b);
+    }
+
+    private static float computeContrast(NativeImage image) {
+        int width = image.getWidth();
+        int height = image.getHeight();
+        float mean = 0.0f;
+        float meanSq = 0.0f;
+        int total = width * height;
+
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                float lum = computeLuminance(image.getPixel(x, y));
+                mean += lum;
+                meanSq += lum * lum;
+            }
+        }
+
+        mean /= total;
+        meanSq /= total;
+        return clamp((float)Math.sqrt(Math.max(0.0f, meanSq - mean * mean)), 0.0f, 1.0f);
+    }
+
+    private static float computeLuminance(int color) {
+        float r = ((color >> 0) & 0xFF) / 255.0f;
+        float g = ((color >> 8) & 0xFF) / 255.0f;
+        float b = ((color >> 16) & 0xFF) / 255.0f;
+        return 0.2126f * r + 0.7152f * g + 0.0722f * b;
+    }
+
+    private static float[] rgbToHsl(float r, float g, float b) {
+        float max = Math.max(r, Math.max(g, b));
+        float min = Math.min(r, Math.min(g, b));
+        float h = 0.0f;
+        float s = 0.0f;
+        float l = (max + min) * 0.5f;
+
+        if (max != min) {
+            float delta = max - min;
+            s = l > 0.5f ? delta / (2.0f - max - min) : delta / (max + min);
+            if (max == r) {
+                h = (g - b) / delta + (g < b ? 6.0f : 0.0f);
+            } else if (max == g) {
+                h = (b - r) / delta + 2.0f;
+            } else {
+                h = (r - g) / delta + 4.0f;
+            }
+            h /= 6.0f;
+        }
+
+        return new float[]{h, s, l};
+    }
+
+    private static float clamp(float value, float min, float max) {
+        return value < min ? min : value > max ? max : value;
     }
 
     private static BlockMaterialType detectFromPath(String path) {

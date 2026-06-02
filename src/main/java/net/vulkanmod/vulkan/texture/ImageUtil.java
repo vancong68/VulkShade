@@ -7,6 +7,7 @@ import net.vulkanmod.vulkan.memory.buffer.Buffer;
 import net.vulkanmod.vulkan.queue.CommandPool;
 import net.vulkanmod.vulkan.util.VUtil;
 import org.lwjgl.PointerBuffer;
+import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
@@ -97,41 +98,99 @@ public abstract class ImageUtil {
         vkCmdCopyImageToBuffer(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer, region);
     }
 
-    public static void blitFramebuffer(VulkanImage dstImage, int srcX0, int srcY0, int srcX1, int srcY1, int dstX0, int dstY0, int dstX1, int dstY1) {
+    public static void blitFramebuffer(VulkanImage srcColorImage, VulkanImage dstColorImage, VulkanImage srcDepthImage, VulkanImage dstDepthImage,
+                                         int srcX0, int srcY0, int srcX1, int srcY1, int dstX0, int dstY0, int dstX1, int dstY1,
+                                         int mask, int vkFilter) {
+        if (srcColorImage == null && dstColorImage == null && srcDepthImage == null && dstDepthImage == null) {
+            return;
+        }
+
         try (MemoryStack stack = stackPush()) {
-
             VkCommandBuffer commandBuffer = Renderer.getCommandBuffer();
-
             Renderer.getInstance().endRenderPass(commandBuffer);
 
-            dstImage.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            int srcXMin = Math.min(srcX0, srcX1);
+            int srcYMin = Math.min(srcY0, srcY1);
+            int srcXMax = Math.max(srcX0, srcX1);
+            int srcYMax = Math.max(srcY0, srcY1);
+            int dstXMin = Math.min(dstX0, dstX1);
+            int dstYMin = Math.min(dstY0, dstY1);
+            int dstXMax = Math.max(dstX0, dstX1);
+            int dstYMax = Math.max(dstY0, dstY1);
 
-            // TODO: hardcoded srcImage
-            VulkanImage srcImage = Renderer.getInstance().getSwapChain().getColorAttachment();
+            if ((mask & GL30.GL_COLOR_BUFFER_BIT) != 0 && srcColorImage != null && dstColorImage != null) {
+                int srcPrevLayout = srcColorImage.getCurrentLayout();
+                int dstPrevLayout = dstColorImage.getCurrentLayout();
 
-            srcImage.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+                srcColorImage.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+                dstColorImage.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-            VkImageBlit.Buffer blit = VkImageBlit.calloc(1, stack);
-            blit.srcOffsets(0, VkOffset3D.calloc(stack).set(0, 0, 0));
-            blit.srcOffsets(1, VkOffset3D.calloc(stack).set(srcImage.width, srcImage.height, 1));
-            blit.srcSubresource()
-                .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
-                .mipLevel(0)
-                .baseArrayLayer(0)
-                .layerCount(1);
+                VkImageBlit.Buffer blit = VkImageBlit.calloc(1, stack);
+                blit.srcOffsets(0, VkOffset3D.calloc(stack).set(srcX0, srcY0, 0));
+                blit.srcOffsets(1, VkOffset3D.calloc(stack).set(srcX1, srcY1, 1));
+                blit.srcSubresource()
+                    .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
+                    .mipLevel(0)
+                    .baseArrayLayer(0)
+                    .layerCount(1);
 
-            blit.dstOffsets(0, VkOffset3D.calloc(stack).set(0, 0, 0));
-            blit.dstOffsets(1, VkOffset3D.calloc(stack).set(dstImage.width, dstImage.height, 1));
-            blit.dstSubresource().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).mipLevel(0).baseArrayLayer(0)
-                .layerCount(1);
+                blit.dstOffsets(0, VkOffset3D.calloc(stack).set(dstX0, dstY0, 0));
+                blit.dstOffsets(1, VkOffset3D.calloc(stack).set(dstX1, dstY1, 1));
+                blit.dstSubresource()
+                    .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
+                    .mipLevel(0)
+                    .baseArrayLayer(0)
+                    .layerCount(1);
 
-            vkCmdBlitImage(commandBuffer, srcImage.getId(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                           dstImage.getId(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, blit, VK_FILTER_LINEAR);
+                vkCmdBlitImage(commandBuffer,
+                               srcColorImage.getId(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                               dstColorImage.getId(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                               blit, vkFilter);
 
-            dstImage.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                srcColorImage.transitionImageLayout(stack, commandBuffer, srcPrevLayout);
+                dstColorImage.transitionImageLayout(stack, commandBuffer, dstPrevLayout);
+            }
+
+            if ((mask & (GL30.GL_DEPTH_BUFFER_BIT | GL30.GL_STENCIL_BUFFER_BIT)) != 0 && srcDepthImage != null && dstDepthImage != null) {
+                int srcPrevLayout = srcDepthImage.getCurrentLayout();
+                int dstPrevLayout = dstDepthImage.getCurrentLayout();
+                int aspectMask = 0;
+
+                if ((mask & GL30.GL_DEPTH_BUFFER_BIT) != 0) {
+                    aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+                }
+                if ((mask & GL30.GL_STENCIL_BUFFER_BIT) != 0) {
+                    aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+                }
+
+                srcDepthImage.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+                dstDepthImage.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+                VkImageCopy.Buffer copyRegion = VkImageCopy.calloc(1, stack);
+                copyRegion.srcSubresource()
+                          .aspectMask(aspectMask)
+                          .mipLevel(0)
+                          .baseArrayLayer(0)
+                          .layerCount(1);
+                copyRegion.srcOffset().set(srcXMin, srcYMin, 0);
+                copyRegion.dstSubresource()
+                          .aspectMask(aspectMask)
+                          .mipLevel(0)
+                          .baseArrayLayer(0)
+                          .layerCount(1);
+                copyRegion.dstOffset().set(dstXMin, dstYMin, 0);
+                copyRegion.extent().set(srcXMax - srcXMin, srcYMax - srcYMin, 1);
+
+                vkCmdCopyImage(commandBuffer,
+                               srcDepthImage.getId(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                               dstDepthImage.getId(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                               copyRegion);
+
+                srcDepthImage.transitionImageLayout(stack, commandBuffer, srcPrevLayout);
+                dstDepthImage.transitionImageLayout(stack, commandBuffer, dstPrevLayout);
+            }
 
             Renderer.getInstance().getMainPass().rebindMainTarget();
-
         }
     }
 

@@ -1,5 +1,6 @@
 package net.vulkanmod.vulkshade;
 
+import net.minecraft.client.Minecraft;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.pass.MainPass;
@@ -184,6 +185,7 @@ public class VulkShade {
 
     public void onPostProcess() {
         if (!initialized) return;
+        if (Minecraft.getInstance().level == null) return;
         if (postProcessingPipeline != null) {
             Renderer renderer = Renderer.getInstance();
             if (renderer == null) return;

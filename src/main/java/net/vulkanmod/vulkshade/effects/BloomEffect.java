@@ -19,7 +19,7 @@ public class BloomEffect {
 
     private boolean enabled = false;
     private float intensity = 0.3f;
-    private float threshold = 0.5f;
+    private float threshold = 0.85f;
 
     private VulkanImage blurScratch;
     private VulkanImage bloomLevel1;
@@ -295,10 +295,10 @@ public class BloomEffect {
                 float luminance = dot(color, luminanceWeight);
                 float above = luminance - threshold;
                 float linearAmount = max(above, 0.0) / max(1.0 - threshold, 0.001);
-                float knee = max(threshold * 0.5, 0.001);
+                float knee = max(threshold * 0.15, 0.001);
                 float t = clamp((luminance - threshold + knee) / (2.0 * knee), 0.0, 1.0);
-                float softAmount = (t * t * (3.0 - 2.0 * t)) * knee / max(1.0 - threshold, 0.001);
-                float amount = clamp(max(linearAmount, softAmount), 0.0, 1.0);
+                float softAmount = t * t * (3.0 - 2.0 * t);
+                float amount = max(linearAmount, softAmount);
                 vec3 bright = color * amount * intensity;
                 imageStore(dstImage, coord, vec4(bright, 1.0));
             }
@@ -350,7 +350,7 @@ public class BloomEffect {
                 vec4 c11 = imageLoad(srcImage, clamp(i + ivec2(1, 1), ivec2(0), maxC));
                 vec4 c = mix(mix(c00, c10, f.x), mix(c01, c11, f.x), f.y);
                 vec4 existing = imageLoad(dstImage, dstC);
-                imageStore(dstImage, dstC, existing + c * 0.5);
+                imageStore(dstImage, dstC, existing + c * 0.33);
             }
             """;
     }
@@ -368,11 +368,7 @@ public class BloomEffect {
                 if (coord.x >= size.x || coord.y >= size.y) return;
                 vec3 original = texelFetch(originalScene, coord, 0).rgb;
                 vec3 bright = texelFetch(blurredBright, coord, 0).rgb;
-                vec3 result = original + bright;
-                float maxChannel = max(max(result.r, result.g), result.b);
-                if (maxChannel > 1.0) {
-                    result = result / maxChannel;
-                }
+                vec3 result = min(original + bright, 1.0);
                 imageStore(outputImage, coord, vec4(result, 1.0));
             }
             """;

@@ -44,6 +44,7 @@ public class Uniforms {
         vec1i_uniformMap.put("waterQuality", () -> Initializer.CONFIG.waterQuality);
         vec1i_uniformMap.put("blockEmissiveTexturesEnabled", () -> Initializer.CONFIG.blockEmissiveTextures ? 1 : 0);
         vec1i_uniformMap.put("pbrEnabled", () -> net.vulkanmod.vulkshade.config.VulkShadeConfig.getInstance().isPBRenabled() ? 1 : 0);
+        vec1i_uniformMap.put("pbrDebugMode", () -> Initializer.CONFIG.pbrDebugMode);
 
         // PBR fallback material uniforms
         PBRMaterial fallbackMat = PBRMaterial.DEFAULT;

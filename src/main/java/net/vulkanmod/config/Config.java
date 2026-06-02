@@ -54,6 +54,7 @@ public class Config {
     public boolean featureSSAO = true;
     public boolean featureBloom = true;
     public boolean featurePBR = true;
+    public int pbrDebugMode = 0;
     public boolean featureShadows = true;
     public boolean featureFog = true;
     public boolean featureWaterReflect = true;

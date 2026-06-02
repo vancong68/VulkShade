@@ -56,7 +56,7 @@ LabPBRSpecular pbr_decode_specular(vec4 specularSample) {
         s.f0 = green * (0.04 / 0.902);
         s.metalFactor = 0.0;
         s.metalID = 0;
-    } else if (green >= 0.902 && green < 1.0) {
+    } else if (green >= 0.902) {
         int id = int(round(green * 255.0));
         if (id >= 230 && id <= 237) {
             s.metalID = id;
@@ -87,8 +87,6 @@ LabPBRSpecular pbr_decode_specular(vec4 specularSample) {
     }
 
     s.emissive = specularSample.a;
-    if (s.emissive >= 0.999) s.emissive = 0.0;
-
     return s;
 }
 
@@ -113,10 +111,11 @@ LabPBRNormal pbr_decode_normal(vec4 normalSample) {
 
 vec2 pbr_parallax_mapping(sampler2D normalTex, vec2 uv, vec3 viewDirTS, float heightScale) {
     const int POM_LAYERS = 16;
-    const int POM_REFINE_LAYERS = 6;
     float layerDepth = 1.0 / float(POM_LAYERS);
     float currentDepth = 0.0;
     vec2 deltaUV = viewDirTS.xy * heightScale / (viewDirTS.z * float(POM_LAYERS));
+
+    if (any(isnan(deltaUV)) || any(isinf(deltaUV))) return uv;
 
     vec2 currentUV = uv;
     float currentHeight = texture(normalTex, currentUV).a;
@@ -124,17 +123,17 @@ vec2 pbr_parallax_mapping(sampler2D normalTex, vec2 uv, vec3 viewDirTS, float he
     for (int i = 0; i < POM_LAYERS; ++i) {
         currentDepth += layerDepth;
         currentUV -= deltaUV;
+        currentUV = clamp(currentUV, 0.0, 1.0);
         currentHeight = texture(normalTex, currentUV).a;
         if (currentDepth > currentHeight) {
-            float prevDepth = currentDepth - layerDepth;
-            float prevHeight = texture(normalTex, uv - deltaUV * float(i)).a;
+            float prevHeight = texture(normalTex, clamp(uv - deltaUV * float(i), 0.0, 1.0)).a;
             float depthDiff = currentDepth - currentHeight;
-            float prevDiff = prevDepth - prevHeight;
+            float prevDiff = currentDepth - layerDepth - prevHeight;
             float t = depthDiff / max(depthDiff - prevDiff, 0.0001);
-            return uv - deltaUV * (float(i) - t) * 0.25;
+            return clamp(uv - deltaUV * (float(i) - t) * 0.25, 0.0, 1.0);
         }
     }
-    return currentUV;
+    return clamp(currentUV, 0.0, 1.0);
 }
 
 // ===================== PBR BRDF Functions =====================
@@ -196,6 +195,24 @@ vec3 pbr_emissive_contribution(float emissive, vec3 emissiveColor) {
     return emissive * emissiveColor;
 }
 
+float pbr_wetness_roughness(float roughness, float wetness) {
+    return clamp(mix(roughness, max(roughness * 0.35, 0.05), wetness), 0.001, 0.999);
+}
+
+vec3 pbr_wetness_color(vec3 baseColor, float wetness) {
+    return mix(baseColor, baseColor * vec3(0.92, 0.95, 1.00), wetness * 0.35);
+}
+
+vec3 pbr_debug_visualize(int mode, vec3 albedo, vec3 F0, float roughness, float metallic, float ao, vec3 emissiveColor) {
+    if (mode == 1) return vec3(roughness);
+    if (mode == 2) return vec3(metallic);
+    if (mode == 3) return F0;
+    if (mode == 4) return vec3(ao);
+    if (mode == 5) return emissiveColor;
+    if (mode == 6) return albedo;
+    return vec3(metallic, roughness, ao);
+}
+
 // ===================== World Space Normal Map Conversion =====================
 
 mat3 pbr_tangent_to_world(vec3 worldNormal, vec3 worldPos, vec2 uv) {
@@ -204,18 +221,26 @@ mat3 pbr_tangent_to_world(vec3 worldNormal, vec3 worldPos, vec2 uv) {
     vec2 duv1 = dFdx(uv);
     vec2 duv2 = dFdy(uv);
     float det = duv1.x * duv2.y - duv1.y * duv2.x;
-    if (abs(det) < 1e-6) return mat3(1.0);
-    vec3 T = normalize(dp1 * duv2.y - dp2 * duv1.y);
-    vec3 B = normalize(dp2 * duv1.x - dp1 * duv2.x);
+    if (abs(det) < 1e-6 || any(isnan(dp1)) || any(isinf(dp1))) return mat3(1.0);
+    float signDet = sign(det);
+    vec3 T = dp1 * duv2.y - dp2 * duv1.y;
+    vec3 B = dp2 * duv1.x - dp1 * duv2.x;
+    float tLen = length(T);
+    float bLen = length(B);
+    if (tLen < 1e-6 || bLen < 1e-6 || isnan(tLen) || isinf(tLen)) return mat3(1.0);
+    T /= tLen;
+    B /= bLen;
     vec3 N = worldNormal;
     T = normalize(T - dot(T, N) * N);
-    B = cross(N, T);
+    B = cross(N, T) * signDet;
     return mat3(T, B, N);
 }
 
 vec3 pbr_apply_normal_map(vec3 worldNormal, vec3 tangentNormal, vec3 worldPos, vec2 uv) {
     mat3 TBN = pbr_tangent_to_world(worldNormal, worldPos, uv);
-    return normalize(TBN * tangentNormal);
+    vec3 result = TBN * tangentNormal;
+    if (any(isnan(result)) || any(isinf(result))) return worldNormal;
+    return normalize(result);
 }
 
 // ===================== Subsurface Scattering Approximation =====================

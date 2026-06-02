@@ -471,6 +471,20 @@ public abstract class Options {
                                          value -> vcfg.setPBRenabled(value),
                                          () -> config.featurePBR)
                                 .setTooltip(Component.translatable("vulkanmod.options.feature.pbr.tooltip")),
+                        new RangeOption(Component.translatable("vulkshade.effects.pbrDebug"),
+                                        0, 6, 1,
+                                        value -> Component.translatable(switch (value) {
+                                            case 1 -> "vulkshade.effects.pbrDebug.roughness";
+                                            case 2 -> "vulkshade.effects.pbrDebug.metallic";
+                                            case 3 -> "vulkshade.effects.pbrDebug.f0";
+                                            case 4 -> "vulkshade.effects.pbrDebug.ao";
+                                            case 5 -> "vulkshade.effects.pbrDebug.emissive";
+                                            case 6 -> "vulkshade.effects.pbrDebug.albedo";
+                                            default -> "vulkshade.effects.pbrDebug.off";
+                                        }),
+                                        value -> config.pbrDebugMode = value,
+                                        () -> config.pbrDebugMode)
+                                .setTooltip(Component.translatable("vulkshade.effects.pbrDebug.tooltip")),
                         new SwitchOption(Component.translatable("vulkanmod.options.feature.fog"),
                                          value -> vcfg.setFogEnabled(value),
                                          () -> config.featureFog)
