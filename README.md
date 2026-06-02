@@ -2,7 +2,7 @@
 
 VulkShade is a shader-enabled fork of **VulkanMod** for **Minecraft Java**.
 
-Original VulkanMod is by **Collateral**. This fork keeps the original LGPL licensing and adds shader support by **ericpandev**.
+Original VulkanMod is by **Collateral**. This fork keeps the original LGPL licensing and adds shader support by **ericpandev (main author) and vancong68 (maintainer) **.
 
 ### Why?
 - Highly experimental project that overhauls and modernizes the internal renderer for Minecraft. <br>
@@ -11,22 +11,17 @@ Original VulkanMod is by **Collateral**. This fork keeps the original LGPL licen
 - Utilizes the VulkanAPI to allow for capabilities not always possible with OpenGL. <br>
 - Including reduced CPU Overhead and use of newer, modern hardware capabilities. <br>
 
-### Demonstration Video:
-
-[![Demostration Video](http://img.youtube.com/vi/sbr7UxcAmOE/0.jpg)](https://youtu.be/sbr7UxcAmOE)
 
 ## FAQ
-- Remember to check the [Wiki](https://github.com/xCollateral/VulkanMod/wiki) we wrote before asking for support!
+- Remember to check the [Wiki](https://github.com/vancong68/VulkShade/wiki) we wrote before asking for support!
 
 ## Installation
 
 ### Download Links:
 
-- [![CurseForge](https://cf.way2muchnoise.eu/full_635429_downloads.svg?badge_style=flat)](https://www.curseforge.com/minecraft/mc-mods/vulkanmod)
+- [![Release]()
 
-- [![Modrinth Downloads](https://img.shields.io/modrinth/dt/JYQhtZtO?logo=modrinth&label=Modrinth%20Downloads)](https://modrinth.com/mod/vulkanmod/versions)
-
-- [![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/xCollateral/VulkanMod/total?style=flat-square&logo=github&label=Github%20Downloads)](https://github.com/xCollateral/VulkanMod/releases)
+- [![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/xCollateral/VulkanMod/total?style=flat-square&logo=github&label=Github%20Downloads)](https://github.com/vancong68/VulkShade/releases)
 
 ### Install guide:
 >1) Install the [fabric modloader](https://fabricmc.net).
@@ -41,7 +36,7 @@ Original VulkanMod is by **Collateral**. This fork keeps the original LGPL licen
     </tr>
   <tr>
     <td style="text-align:center"> 
-        <a href="https://discord.gg/FVXg7AYR2Q"> 
+        <a href="https://discord.gg/uEs4KhJMhN"> 
             <img alt="Discord" align="top" src="https://img.shields.io/discord/963180553547419670?style=flat-square&logo=discord&logoColor=%23FFFFFF&label=Vulkanmod%20official%20discord%20server&labelColor=%235865F2&color=%235865F2">
         </a>
      </td>
@@ -70,9 +65,9 @@ Original VulkanMod is by **Collateral**. This fork keeps the original LGPL licen
 >- [x] Revamped graphic settings menu
 >- [x] Resizable render frame queue
 >- [x] Shader support
->- [ ] Removed Herobrine
+>- [ ] Removed Herobrine :D
 
 
 ## Notes
-- This mod is still in development, please report issues in the [issue tab](https://github.com/xCollateral/VulkanMod/issues) with logs attached!
+- This mod is still in development, please report issues in the [issue tab](https://github.com/vancong68/VulkShade/issues) with logs attached!
 - This mode isn't just "minecraft on vulkan" (e.g: [zink](https://docs.mesa3d.org/drivers/zink.html) ), it is a full rewrite of the minecraft renderer.
