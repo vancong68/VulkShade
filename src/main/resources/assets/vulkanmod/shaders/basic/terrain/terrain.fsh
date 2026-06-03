@@ -7,6 +7,11 @@ layout(binding = 2) uniform sampler2D Sampler0;
 layout(binding = 4) uniform sampler2D Sampler5;
 layout(binding = 5) uniform sampler2D Sampler6;
 
+layout(binding = 6) uniform sampler2D Sampler8;
+layout(binding = 7) uniform sampler2D Sampler9;
+layout(binding = 8) uniform sampler2D Sampler10;
+layout(binding = 9) uniform sampler2D Sampler11;
+
 layout(binding = 1) uniform UBO {
     vec4 FogColor;
     float FogEnvironmentalStart;
@@ -34,6 +39,8 @@ layout(binding = 1) uniform UBO {
     int pbrDebugMode;
     float pbrNormalStrength;
     float pbrSpecularStrength;
+    int pomEnabled;
+    float pomHeightScale;
 };
 
 #define MAKEUP_TERRAIN_SHADOW_QUALITY terrainShadowQuality
@@ -58,51 +65,65 @@ void main() {
         discard;
     }
 
-    vec3 baseColor = texColor.rgb * rawVertexColor.rgb;
+    vec3 baseColorSRGB = texColor.rgb * rawVertexColor.rgb;
     vec3 litColor;
 
     if (pbrEnabled != 0) {
-        vec3 N = normalize(makeup_terrain_normal(cameraRelativePosition));
+        float fragDistance = length(cameraRelativePosition);
         vec3 V = normalize(-cameraRelativePosition);
-        vec3 L = normalize(shadowLightPosition);
+        vec3 worldNormal = makeup_terrain_normal(cameraRelativePosition);
 
-        float NdotL = max(dot(N, L), 0.0);
-        float shadowValue = clamp(makeup_terrain_shadow_value(cameraRelativePosition, N), 0.0, 1.0);
-        vec3 sunRadiance = makeup_direct_light_color() * dayNightMix * (1.0 - rainStrength * 0.75);
+        mat3 TBN = pbr_construct_tbn(cameraRelativePosition, texCoord0, worldNormal);
 
-        PBRMaterial mat;
-        mat.albedo = baseColor;
-        mat.roughness = clamp(0.6, 0.02, 0.98);
-        mat.metallic = 0.0;
-        mat.ao = clamp(makeup_ambient_occlusion(cameraRelativePosition), 0.0, 1.0);
-        mat.emissive = vec3(0.0);
-        mat.perceptualRoughness = mat.roughness;
-
-        vec3 F0 = mix(vec3(0.04), mat.albedo, mat.metallic);
-
-        vec3 directSpecular = pbr_cook_torrance(N, V, L, sunRadiance * shadowValue,
-                                                  F0, mat.roughness, mat.albedo, mat.metallic);
-        directSpecular *= clamp(pbrSpecularStrength, 0.0, 10.0);
-
-        vec3 ambientDiffuse = mat.albedo * lightColor * mat.ao * 0.5;
-
-        litColor = ambientDiffuse + directSpecular;
-
-        if (blockEmissiveTexturesEnabled != 0) {
-            vec3 emissiveTex = texture(Sampler6, texCoord0).rgb;
-            litColor += emissiveTex;
+        vec2 pbrUV = texCoord0;
+        if (pomEnabled != 0) {
+            vec3 V_ts = transpose(TBN) * V;
+            pbrUV = pbr_apply_pom(Sampler11, texCoord0, V_ts, pomHeightScale, fragDistance);
         }
 
-        litColor = pbr_reinhard_tone_map(litColor);
+        vec3 baseColorLinear = pbr_srgb_to_linear(baseColorSRGB);
+
+        PBRMaterial mat = pbr_material_from_textures(
+            baseColorLinear, Sampler8, Sampler9, Sampler10,
+            pbrUV, TBN, pbrNormalStrength
+        );
+
+        vec3 N = mat.worldNormal;
+        vec3 L = normalize(shadowLightPosition);
+        float NdotL = max(dot(N, L), 0.0);
+        float shadowValue = clamp(makeup_terrain_shadow_value(cameraRelativePosition, N), 0.0, 1.0);
+        float sunVisibility = (1.0 - rainStrength * 0.75);
+        vec3 sunRadiance = makeup_direct_light_color() * dayNightMix * sunVisibility;
+
+        PBRLight light;
+        light.direction = L;
+        light.radiance = sunRadiance;
+        light.attenuation = shadowValue;
+
+        vec3 directResult = pbr_evaluate(mat, light, N, V);
+        vec3 ambientResult = pbr_evaluate_ibl_approx(mat, N, V, rawLightLevels, dayNightMix);
+
+        vec3 pbrLit = directResult + ambientResult;
+
+        if (blockEmissiveTexturesEnabled != 0) {
+            vec3 emissiveTex = texture(Sampler6, pbrUV).rgb;
+            pbrLit += emissiveTex;
+        }
+
+        pbrLit = pbr_debug_view(pbrDebugMode, mat, N, pbrLit, NdotL);
+
+        // Output linear HDR for post-process tonemap pass
+        // (no Reinhard here — ACES in tonemap.fsh handles it)
+        litColor = pbrLit;
     } else if (terrainLightingQuality >= 2) {
         litColor = color.rgb;
     } else if (terrainLightingQuality == 1) {
-        litColor = makeup_apply_fast_terrain_lighting(color.rgb, baseColor, rawLightLevels);
+        litColor = makeup_apply_fast_terrain_lighting(color.rgb, baseColorSRGB, rawLightLevels);
     } else {
         vec3 worldNormal = makeup_terrain_normal(cameraRelativePosition);
         litColor = makeup_apply_terrain_lighting(
             color.rgb,
-            baseColor,
+            baseColorSRGB,
             worldNormal,
             rawLightLevels,
             cameraRelativePosition

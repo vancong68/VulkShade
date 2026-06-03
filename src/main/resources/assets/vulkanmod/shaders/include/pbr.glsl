@@ -70,17 +70,17 @@ vec3 pbr_sample_normal(sampler2D normalMap, vec2 uv) {
 
 vec2 pbr_parallax_occlusion_mapping(
     sampler2D heightMap, vec2 texCoord, vec3 viewDirTS,
-    float heightScale, float minLayers, float maxLayers
+    float heightScale, float numLayers
 ) {
-    float numLayers = mix(maxLayers, minLayers, max(abs(viewDirTS.z), 0.001));
-    float layerHeight = 1.0 / numLayers;
-    vec2 deltaTexCoord = (viewDirTS.xy / max(viewDirTS.z, 0.001)) * heightScale / numLayers;
+    float layerHeight = 1.0 / max(numLayers, 1.0);
+    vec2 deltaTexCoord = (viewDirTS.xy / max(abs(viewDirTS.z), 0.001)) * heightScale / numLayers;
 
     vec2 currentTexCoord = texCoord;
     float currentHeight = texture(heightMap, currentTexCoord).r;
     float currentLayerHeight = 1.0;
 
-    while (currentLayerHeight > currentHeight) {
+    for (int i = 0; i < 64; ++i) {
+        if (currentLayerHeight <= currentHeight) break;
         currentTexCoord -= deltaTexCoord;
         currentHeight = texture(heightMap, currentTexCoord).r;
         currentLayerHeight -= layerHeight;
@@ -94,8 +94,12 @@ vec2 pbr_parallax_occlusion_mapping(
     return mix(currentTexCoord, prevTexCoord, clamp(weight, 0.0, 1.0));
 }
 
-vec2 pbr_apply_pom(sampler2D heightMap, vec2 texCoord, vec3 V_ts, float heightScale) {
-    return pbr_parallax_occlusion_mapping(heightMap, texCoord, V_ts, heightScale, 8.0, 32.0);
+vec2 pbr_apply_pom(sampler2D heightMap, vec2 texCoord, vec3 V_ts, float heightScale, float fragDistance) {
+    if (heightScale <= 0.0 || fragDistance > 64.0) return texCoord;
+
+    float distFactor = clamp(1.0 - fragDistance / 64.0, 0.0, 1.0);
+    float numLayers = mix(8.0, 32.0, distFactor * distFactor);
+    return pbr_parallax_occlusion_mapping(heightMap, texCoord, V_ts, heightScale, numLayers);
 }
 
 // ===================== BRDF Functions =====================
@@ -173,19 +177,32 @@ vec3 pbr_evaluate(
 }
 
 // ===================== IBL Approximation (Lightmap-Based) =====================
+// Uses lightmap as ambient proxy while subtracting sun component to avoid
+// double-counting with the direct Cook-Torrance BRDF.
 
-vec3 pbr_evaluate_ibl_approx(PBRMaterial mat, vec3 N, vec3 V, vec3 irradianceColor) {
+vec3 pbr_evaluate_ibl_approx(
+    PBRMaterial mat, vec3 N, vec3 V,
+    vec2 rawLightLevels, float dayNightMix
+) {
     vec3 F0 = mix(vec3(0.04), mat.albedo, mat.metallic);
-
     float NdotV = max(dot(N, V), 0.0);
     vec3 F = pbr_fresnel_schlick_roughness(NdotV, F0, mat.roughness);
     vec3 kS = F;
     vec3 kD = (vec3(1.0) - kS) * (1.0 - mat.metallic);
 
-    vec3 diffuse = kD * mat.albedo * irradianceColor * mat.ao;
+    float blockLight = rawLightLevels.x;
+    float skyLight = rawLightLevels.y;
 
-    float specularIBL = (1.0 - mat.roughness) * (1.0 - mat.roughness) * 0.04;
-    vec3 specular = F * specularIBL * irradianceColor * mat.ao;
+    float ambientSky = skyLight * (1.0 - dayNightMix * 0.85);
+    float ambient = max(ambientSky, blockLight);
+    ambient = max(ambient, 0.01);
+
+    vec3 irradiance = vec3(ambient * 0.06);
+
+    vec3 diffuse = kD * mat.albedo * irradiance * mat.ao;
+
+    float envBRDF = (1.0 - mat.roughness) * (1.0 - mat.roughness);
+    vec3 specular = F * irradiance * envBRDF * mat.ao;
 
     return diffuse + specular;
 }
@@ -212,7 +229,7 @@ vec3 pbr_evaluate_ibl(
 
 PBRMaterial pbr_material_from_textures(
     vec3 baseColorLinear, sampler2D normalMap, sampler2D specularMap, sampler2D aoMap,
-    vec2 uv, mat3 TBN, vec3 V, float normalStrength
+    vec2 uv, mat3 TBN, float normalStrength
 ) {
     PBRMaterial mat;
 
@@ -227,26 +244,8 @@ PBRMaterial pbr_material_from_textures(
     mat.perceptualRoughness = mat.roughness;
 
     vec3 tangentNormal = pbr_sample_normal(normalMap, uv);
-    mat.worldNormal = normalize(mix(TBN[2], TBN * tangentNormal, max(normalStrength, 1.0)));
-
-    return mat;
-}
-
-PBRMaterial pbr_material_from_textures_fast(
-    vec3 baseColorLinear, sampler2D normalMap, sampler2D specularMap,
-    vec2 uv, vec3 worldNormal, vec3 V
-) {
-    PBRMaterial mat;
-
-    vec4 specTex = texture(specularMap, uv);
-
-    mat.albedo = baseColorLinear;
-    mat.roughness = clamp(1.0 - specTex.g, 0.02, 0.98);
-    mat.metallic = specTex.b;
-    mat.ao = 1.0;
-    mat.emissive = vec3(0.0);
-    mat.perceptualRoughness = mat.roughness;
-    mat.worldNormal = worldNormal;
+    float strength = clamp(normalStrength, 0.0, 1.0);
+    mat.worldNormal = normalize(mix(TBN[2], TBN * tangentNormal, strength));
 
     return mat;
 }
@@ -266,6 +265,8 @@ float pbr_luminance(vec3 color) {
 }
 
 // ===================== Tone Mapping =====================
+// These are available for direct use. When post-process ACES is active,
+// do NOT call these from the fragment shader — output linear HDR instead.
 
 vec3 pbr_aces_tone_map(vec3 color) {
     float a = 2.51;

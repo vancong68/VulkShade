@@ -46,6 +46,8 @@ public class Uniforms {
         vec1i_uniformMap.put("pbrDebugMode", () -> Initializer.CONFIG.pbrDebugMode);
         vec1f_uniformMap.put("pbrNormalStrength", () -> Initializer.CONFIG.pbrNormalStrength);
         vec1f_uniformMap.put("pbrSpecularStrength", () -> Initializer.CONFIG.pbrSpecularStrength);
+        vec1i_uniformMap.put("pomEnabled", () -> Initializer.CONFIG.pomEnabled ? 1 : 0);
+        vec1f_uniformMap.put("pomHeightScale", () -> Initializer.CONFIG.pomHeightScale);
 
 
         //Vec1

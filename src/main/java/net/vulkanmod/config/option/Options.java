@@ -499,6 +499,16 @@ public abstract class Options {
                                         value -> config.pbrSpecularStrength = value / 100.0f,
                                         () -> (int)(config.pbrSpecularStrength * 100))
                                 .setTooltip(Component.translatable("vulkshade.effects.pbrSpecularStrength.tooltip")),
+                        new SwitchOption(Component.translatable("vulkshade.effects.pom"),
+                                         value -> config.pomEnabled = value,
+                                         () -> config.pomEnabled)
+                                .setTooltip(Component.translatable("vulkshade.effects.pom.tooltip")),
+                        new RangeOption(Component.translatable("vulkshade.effects.pomHeightScale"),
+                                        1, 30, 1,
+                                        value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
+                                        value -> config.pomHeightScale = value / 100.0f,
+                                        () -> (int)(config.pomHeightScale * 100))
+                                .setTooltip(Component.translatable("vulkshade.effects.pomHeightScale.tooltip")),
 
                         new SwitchOption(Component.translatable("vulkanmod.options.feature.fog"),
                                          value -> vcfg.setFogEnabled(value),

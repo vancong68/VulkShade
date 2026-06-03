@@ -52,6 +52,8 @@ import net.vulkanmod.render.profiling.BuildTimeProfiler;
 import net.vulkanmod.render.profiling.Profiler;
 import net.vulkanmod.render.profiling.Profiler.Result;
 import net.vulkanmod.render.sky.SkyRenderer;
+import net.vulkanmod.render.pbr.PBRTextureHolder;
+import net.vulkanmod.render.pbr.PBRTextureManager;
 import net.vulkanmod.render.texture.emissive.EmissiveTextureManager;
 
 import net.vulkanmod.render.vertex.TerrainRenderType;
@@ -1182,6 +1184,19 @@ public class WorldRenderer {
             }
             if (Initializer.CONFIG.waterQuality == 0 && this.waterSceneDepthTextureView != null) {
                 RenderSystem.setShaderTexture(7, this.waterSceneDepthTextureView);
+            }
+        }
+
+        // Load and bind PBR textures if PBR is enabled
+        if (Initializer.CONFIG.featurePBR) {
+            PBRTextureManager.INSTANCE.init();
+            PBRTextureManager.INSTANCE.loadForTexture(TextureAtlas.LOCATION_BLOCKS, blockAtlasTexture);
+            PBRTextureHolder pbrHolder = PBRTextureManager.INSTANCE.getHolder(TextureAtlas.LOCATION_BLOCKS);
+            if (pbrHolder != null) {
+                RenderSystem.setShaderTexture(8, pbrHolder.normalTexture().getTextureView());
+                RenderSystem.setShaderTexture(9, pbrHolder.specularTexture().getTextureView());
+                RenderSystem.setShaderTexture(10, pbrHolder.aoTexture().getTextureView());
+                RenderSystem.setShaderTexture(11, pbrHolder.heightTexture().getTextureView());
             }
         }
 
