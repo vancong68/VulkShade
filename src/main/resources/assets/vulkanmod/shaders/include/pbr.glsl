@@ -177,8 +177,10 @@ vec3 pbr_evaluate(
 }
 
 // ===================== IBL Approximation (Lightmap-Based) =====================
-// Uses lightmap as ambient proxy while subtracting sun component to avoid
-// double-counting with the direct Cook-Torrance BRDF.
+// Uses lightmap scalar levels only — NO sky color injected.
+// Subtracts sun component from sky light to avoid double-counting
+// with the direct Cook-Torrance BRDF.
+// Irradiance is energy-conserving: intensity / PI.
 
 vec3 pbr_evaluate_ibl_approx(
     PBRMaterial mat, vec3 N, vec3 V,
@@ -197,12 +199,13 @@ vec3 pbr_evaluate_ibl_approx(
     float ambient = max(ambientSky, blockLight);
     ambient = max(ambient, 0.01);
 
-    vec3 irradiance = vec3(ambient * 0.06);
+    // Energy-conserving irradiance: light intensity / PI
+    float irradianceScalar = ambient / PBR_PI;
 
-    vec3 diffuse = kD * mat.albedo * irradiance * mat.ao;
+    vec3 diffuse = kD * mat.albedo * irradianceScalar * mat.ao;
 
     float envBRDF = (1.0 - mat.roughness) * (1.0 - mat.roughness);
-    vec3 specular = F * irradiance * envBRDF * mat.ao;
+    vec3 specular = F * irradianceScalar * envBRDF * mat.ao;
 
     return diffuse + specular;
 }
@@ -265,25 +268,24 @@ float pbr_luminance(vec3 color) {
 }
 
 // ===================== Tone Mapping =====================
-// These are available for direct use. When post-process ACES is active,
-// do NOT call these from the fragment shader — output linear HDR instead.
-
-vec3 pbr_aces_tone_map(vec3 color) {
-    float a = 2.51;
-    float b = 0.03;
-    float c = 2.43;
-    float d = 0.59;
-    float e = 0.14;
-    return clamp((color * (a * color + b)) / (color * (c * color + d) + e), 0.0, 1.0);
-}
-
-vec3 pbr_reinhard_tone_map(vec3 color) {
-    return color / (color + 1.0);
-}
+// Tone mapping is handled by the post-process ACES pass (tonemap.fsh).
+// Do NOT call tone mapping from fragment shaders — output linear HDR instead.
+// No Reinhard or ACES functions are provided here to prevent accidental misuse.
 
 // ===================== Debug modes =====================
+// mode 0: default (metallic, roughness, ao)
+// mode 1: albedo (linear-to-sRGB for display)
+// mode 2: roughness (grayscale)
+// mode 3: metallic (grayscale)
+// mode 4: ambient occlusion (grayscale)
+// mode 5: emissive
+// mode 6: world normal (encoded 0..1)
+// mode 7: NdotL (sun facing, grayscale)
+// mode 8: full PBR (litColor — all contributions)
+// mode 9: ambient IBL only (isolated)
+// mode 10: direct only (isolated)
 
-vec3 pbr_debug_view(int mode, PBRMaterial mat, vec3 N, vec3 litColor, float NdotL) {
+vec3 pbr_debug_view(int mode, PBRMaterial mat, vec3 N, vec3 direct, vec3 ambient, float NdotL) {
     if (mode == 1) return pbr_linear_to_srgb(mat.albedo);
     if (mode == 2) return vec3(mat.roughness);
     if (mode == 3) return vec3(mat.metallic);
@@ -291,7 +293,9 @@ vec3 pbr_debug_view(int mode, PBRMaterial mat, vec3 N, vec3 litColor, float Ndot
     if (mode == 5) return mat.emissive;
     if (mode == 6) return pbr_encode_normal(N);
     if (mode == 7) return vec3(NdotL);
-    if (mode == 8) return litColor;
+    if (mode == 8) return direct + ambient;
+    if (mode == 9) return ambient;
+    if (mode == 10) return direct;
     return vec3(mat.metallic, mat.roughness, mat.ao);
 }
 

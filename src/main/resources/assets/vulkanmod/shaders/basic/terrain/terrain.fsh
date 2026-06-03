@@ -110,10 +110,10 @@ void main() {
             pbrLit += emissiveTex;
         }
 
-        pbrLit = pbr_debug_view(pbrDebugMode, mat, N, pbrLit, NdotL);
+        pbrLit = pbr_debug_view(pbrDebugMode, mat, N, directResult, ambientResult, NdotL);
 
-        // Output linear HDR for post-process tonemap pass
-        // (no Reinhard here — ACES in tonemap.fsh handles it)
+        // Output linear HDR for post-process tonemap pass only.
+        // Single ACES tone map in tonemap.fsh — no Reinhard, no double tone map.
         litColor = pbrLit;
     } else if (terrainLightingQuality >= 2) {
         litColor = color.rgb;

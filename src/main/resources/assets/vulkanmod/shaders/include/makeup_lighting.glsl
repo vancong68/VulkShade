@@ -224,13 +224,15 @@ vec3 makeup_candle_color(float blockLight) {
 vec3 makeup_omni_light(float visibleSky, float rawDirectLight, vec3 directLightColor) {
     float omniStrength = ((rawDirectLight + 1.0) * 0.25) + 0.75;
 
-    vec3 zenithColor = makeup_zenith_light_color();
-    vec3 omniColor = mix(zenithColor, directLightColor * 0.45, MAKEUP_OMNI_TINT);
-    float omniColorLuma = makeup_color_average(omniColor);
-    vec3 omniColorMin = omniColor * (MAKEUP_AVOID_DARK_LEVEL / max(omniColorLuma, 0.0001));
-    omniColor = max(omniColor, omniColorMin);
+    // Neutral grayscale ambient — NO sky color injected.
+    // Sky color is restricted to skybox, fog, and future IBL reflections only.
+    float zenithLuma = makeup_color_average(makeup_zenith_light_color());
+    float directLuma = makeup_color_average(directLightColor);
+    float baseLuma = mix(zenithLuma, directLuma * 0.45, MAKEUP_OMNI_TINT);
+    float omniLuma = max(baseLuma, MAKEUP_AVOID_DARK_LEVEL);
+    vec3 omniColor = vec3(omniLuma);
 
-    return mix(omniColorMin, omniColor, visibleSky) * omniStrength;
+    return omniColor * omniStrength;
 }
 
 vec3 makeup_apply_lighting(vec3 baseColor, vec3 normal, vec2 rawLightLevels, vec3 worldPos) {
