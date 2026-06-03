@@ -47,6 +47,7 @@ public class Uniforms {
         vec1f_uniformMap.put("pbrNormalStrength", () -> Initializer.CONFIG.pbrNormalStrength);
         vec1f_uniformMap.put("pbrSpecularStrength", () -> Initializer.CONFIG.pbrSpecularStrength);
 
+
         //Vec1
         vec1f_uniformMap.put("FogStart", () -> VRenderSystem.getFogData().renderDistanceStart);
         vec1f_uniformMap.put("FogEnd", () -> VRenderSystem.getFogData().renderDistanceEnd);

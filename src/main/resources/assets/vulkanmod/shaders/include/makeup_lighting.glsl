@@ -315,3 +315,7 @@ vec3 makeup_oriented_normal(vec3 normal) {
     }
     return orientedNormal;
 }
+
+float makeup_ambient_occlusion(vec3 worldPos) {
+    return 1.0;
+}

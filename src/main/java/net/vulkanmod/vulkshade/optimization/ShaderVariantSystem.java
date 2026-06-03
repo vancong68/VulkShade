@@ -55,13 +55,13 @@ public class ShaderVariantSystem {
         BLOOM(1 << 1),
         PBR(1 << 2),
         SHADOW(1 << 3),
-        FOG(1 << 4),
-        WATER_REFLECT(1 << 5),
-        EMISSIVE(1 << 6),
-        VOLUMETRIC(1 << 7),
-        VOX_LOD(1 << 8),
-        MOTION_BLUR(1 << 9),
-        LENS_FLARE(1 << 10);
+        FOG(1 << 3),
+        WATER_REFLECT(1 << 4),
+        EMISSIVE(1 << 5),
+        VOLUMETRIC(1 << 6),
+        VOX_LOD(1 << 7),
+        MOTION_BLUR(1 << 8),
+        LENS_FLARE(1 << 9);
 
         final int bit;
         ShaderFeature(int bit) { this.bit = bit; }
@@ -107,6 +107,7 @@ public class ShaderVariantSystem {
             sb.append("#define FEATURE_SSAO\n");
         if ((features & ShaderFeature.BLOOM.getBit()) != 0)
             sb.append("#define FEATURE_BLOOM\n");
+
         if ((features & ShaderFeature.PBR.getBit()) != 0)
             sb.append("#define FEATURE_PBR\n");
         if ((features & ShaderFeature.SHADOW.getBit()) != 0)

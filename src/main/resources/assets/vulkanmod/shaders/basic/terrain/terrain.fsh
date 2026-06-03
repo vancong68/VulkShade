@@ -48,19 +48,6 @@ layout(location = 5) in vec4 rawVertexColor;
 layout(location = 6) in vec3 cameraRelativePosition;
 layout(location = 7) in vec3 lightColor;
 layout(location = 8) in vec2 rawLightLevels;
-layout(location = 9) flat in uint packedLightRaw;
-
-const uint MATERIAL_ROCK = 1u;
-const uint MATERIAL_WOOD = 2u;
-const uint MATERIAL_METAL = 3u;
-const uint MATERIAL_GLASS = 4u;
-const uint MATERIAL_LEAF = 5u;
-const uint MATERIAL_ORGANIC = 6u;
-const uint MATERIAL_SAND = 7u;
-const uint MATERIAL_DIRT = 8u;
-const uint MATERIAL_WATER = 9u;
-const uint MATERIAL_ICE = 10u;
-const uint MATERIAL_EMISSIVE = 11u;
 
 layout(location = 0) out vec4 fragColor;
 
@@ -75,88 +62,38 @@ void main() {
     vec3 litColor;
 
     if (pbrEnabled != 0) {
-        PBRMaterialParams mat = pbr_get_material_params(materialFlags);
-
-        vec3 geoNormal = makeup_terrain_normal(cameraRelativePosition);
-        if (any(isnan(geoNormal)) || any(isinf(geoNormal))) {
-            geoNormal = vec3(0.0, 1.0, 0.0);
-        }
-        geoNormal = normalize(geoNormal);
-        if (pbrNormalStrength > 0.001) {
-            geoNormal = pbr_generate_normal(Sampler0, texCoord0, cameraRelativePosition, pbrNormalStrength);
-        }
-
+        vec3 N = normalize(makeup_terrain_normal(cameraRelativePosition));
         vec3 V = normalize(-cameraRelativePosition);
-        if (any(isnan(V)) || any(isinf(V))) V = vec3(0.0, 0.0, 1.0);
-
         vec3 L = normalize(shadowLightPosition);
-        if (any(isnan(L)) || any(isinf(L))) L = vec3(0.0, 1.0, 0.0);
 
+        float NdotL = max(dot(N, L), 0.0);
+        float shadowValue = clamp(makeup_terrain_shadow_value(cameraRelativePosition, N), 0.0, 1.0);
         vec3 sunRadiance = makeup_direct_light_color() * dayNightMix * (1.0 - rainStrength * 0.75);
 
-        vec3 F0 = vec3(0.04);
-        float roughness = clamp(mat.roughness, 0.02, 0.98);
-        float metallic = mat.metallic;
-        float ao = clamp(mat.ao, 0.0, 1.0);
+        PBRMaterial mat;
+        mat.albedo = baseColor;
+        mat.roughness = clamp(0.6, 0.02, 0.98);
+        mat.metallic = 0.0;
+        mat.ao = clamp(makeup_ambient_occlusion(cameraRelativePosition), 0.0, 1.0);
+        mat.emissive = vec3(0.0);
+        mat.perceptualRoughness = mat.roughness;
 
-        if (metallic > 0.5) {
-            F0 = max(baseColor, vec3(0.04));
-        }
+        vec3 F0 = mix(vec3(0.04), mat.albedo, mat.metallic);
 
-        float wetness = clamp(rainStrength * 0.65 + (1.0 - ao) * 0.15, 0.0, 1.0);
-        roughness = pbr_wetness_roughness(roughness, wetness);
-        baseColor = pbr_wetness_color(baseColor, wetness);
-
-        vec2 illum = makeup_adjust_light_levels(rawLightLevels);
-        float visibleSky = clamp(illum.y, 0.0, 1.0);
-        float blockLight = clamp(illum.x, 0.0, 1.0);
-
-        float shadowValue = clamp(makeup_terrain_shadow_value(cameraRelativePosition, geoNormal), 0.0, 1.0);
-
-        vec3 ambientDiffuse = baseColor * lightColor * ao;
-
-        float NdotL = max(dot(geoNormal, L), 0.0);
-
-        vec3 directSpecular = pbr_cook_torrance(
-            geoNormal, V, L, sunRadiance * shadowValue,
-            F0, roughness, baseColor, metallic
-        );
-        if (any(isnan(directSpecular)) || any(isinf(directSpecular))) directSpecular = vec3(0.0);
+        vec3 directSpecular = pbr_cook_torrance(N, V, L, sunRadiance * shadowValue,
+                                                  F0, mat.roughness, mat.albedo, mat.metallic);
         directSpecular *= clamp(pbrSpecularStrength, 0.0, 10.0);
+
+        vec3 ambientDiffuse = mat.albedo * lightColor * mat.ao * 0.5;
 
         litColor = ambientDiffuse + directSpecular;
 
-        vec3 sssLight = vec3(0.0);
-        if (mat.sss > 0.01) {
-            sssLight = pbr_sss_contribution(geoNormal, V, L, sunRadiance * shadowValue,
-                                             baseColor, mat.sss, roughness);
-            if (any(isnan(sssLight)) || any(isinf(sssLight))) sssLight = vec3(0.0);
-            litColor += sssLight;
-        }
-
         if (blockEmissiveTexturesEnabled != 0) {
             vec3 emissiveTex = texture(Sampler6, texCoord0).rgb;
-            if (!any(isnan(emissiveTex)) && !any(isinf(emissiveTex))) {
-                litColor += emissiveTex;
-            }
+            litColor += emissiveTex;
         }
 
-        if (materialFlags == MATERIAL_EMISSIVE) {
-            litColor += baseColor * 2.0;
-        }
-
-        if (pbrDebugMode != 0) {
-            vec3 emissiveColor = materialFlags == MATERIAL_EMISSIVE ? baseColor : vec3(0.0);
-            litColor = pbr_debug_visualize(pbrDebugMode, baseColor, roughness, metallic, ao,
-                                           emissiveColor, materialFlags, geoNormal,
-                                           visibleSky, blockLight, litColor,
-                                           shadowValue, directSpecular, NdotL, packedLightRaw);
-        }
-
-        if (any(isnan(litColor)) || any(isinf(litColor))) litColor = baseColor;
-        litColor = clamp(litColor, 0.0, 1e6);
-        litColor = litColor / (litColor + 1.0);
-
+        litColor = pbr_reinhard_tone_map(litColor);
     } else if (terrainLightingQuality >= 2) {
         litColor = color.rgb;
     } else if (terrainLightingQuality == 1) {

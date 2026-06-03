@@ -87,11 +87,10 @@ public enum ShaderQuality {
 
         ShaderVariantSystem.getInstance().updateQualityFromShaderQuality(this);
 
-        LOGGER.info("Shader quality preset applied: {} (SSAO={}, Bloom={}, PBR={}, Shadows[{}cs={}])",
+        LOGGER.info("Shader quality preset applied: {} (SSAO={}, Bloom={}, Shadows[{}cs={}])",
             displayName,
             vcfg.isSSAOEnabled(),
             vcfg.isBloomEnabled(),
-            vcfg.isPBRenabled(),
             vcfg.getCascadeCount(),
             vcfg.getShadowResolution());
     }

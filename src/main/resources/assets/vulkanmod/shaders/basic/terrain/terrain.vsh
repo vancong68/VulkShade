@@ -26,7 +26,6 @@ layout (location = 5) out vec4 rawVertexColor;
 layout (location = 6) out vec3 cameraRelativePosition;
 layout (location = 7) out vec3 lightColor;
 layout (location = 8) out vec2 rawLightLevels;
-layout (location = 9) flat out uint packedLightRaw;
 
 #define COMPRESSED_VERTEX
 
@@ -104,8 +103,8 @@ void main() {
     const vec4 Color = unpackUnorm4x8(PackedColor);
     const vec4 lightSample = sample_lightmap2(Sampler2, packedLight);
     vertexColor = Color * lightSample;
-    rawVertexColor = Color;
     materialFlags = packedLight & 0xFu;
+    rawVertexColor = Color;
     cameraRelativePosition = pos;
     lightColor = lightSample.rgb;
 
@@ -115,5 +114,4 @@ void main() {
     rawLightLevels = vec2(blockLight, skyLight);
 
     texCoord0 = UV0 * UV_INV;
-    packedLightRaw = packedLight;
 }
